@@ -1,0 +1,49 @@
+name: Rules or ruling disagreement
+description: You think the tool applies an AL or PHB rule incorrectly.
+title: "[Rules] "
+labels: ["rules"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Welcome and useful — especially if you run Epics yourself.
+
+        Worth knowing before you file: exactly one thing in this tool is a
+        judgement call, and that's **the whole Epic counting as one session**.
+        Everything else is meant to be the rules as written. So if something
+        else looks wrong, it's a bug in this tool rather than a position it
+        took deliberately, and that's worth reporting.
+  - type: dropdown
+    id: which
+    attributes:
+      label: Which part?
+      options:
+        - The whole Epic counting as one session (the organizer ruling)
+        - 50 GP per spell level
+        - Downtime cost (1 DT for levels 1-4, 2 DT for 5-9)
+        - Order of Scribes downtime rate
+        - Only copying spells of a level you can prepare
+        - Which spells are AL-legal in Forgotten Realms
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: should
+    attributes:
+      label: What should it do instead?
+    validations:
+      required: true
+  - type: textarea
+    id: citation
+    attributes:
+      label: What's the source?
+      description: >-
+        An ALPG or PHB reference if you have one — page numbers settle these
+        fastest. A link to an official ruling or FAQ works too.
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else?
+      description: How you've seen it handled at other events, or why the current reading causes a problem.

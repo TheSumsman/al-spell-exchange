@@ -1,0 +1,53 @@
+name: Wrong or missing spell
+description: A spell is absent, or listed at the wrong level, school or source book.
+title: "[Spell] "
+labels: ["spell data"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The spell list is generated automatically from D&D Beyond, so a mistake
+        in it is invisible until it misprices someone at the table. These are
+        the most useful reports this project can get — thank you.
+
+        One spell per issue, please. If you have several, list the rest in the
+        last box and I'll split them.
+  - type: input
+    id: spell
+    attributes:
+      label: Spell name
+      placeholder: e.g. Leomund's Secret Chest
+    validations:
+      required: true
+  - type: dropdown
+    id: problem
+    attributes:
+      label: What's wrong with it?
+      options:
+        - It's missing from the list entirely
+        - Wrong spell level
+        - Wrong school of magic
+        - Wrong source book
+        - It shouldn't be there (not a wizard spell, or not AL-legal in Forgotten Realms)
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: correct
+    attributes:
+      label: What should it say?
+      description: The correct level, school or source book — whichever is wrong.
+      placeholder: e.g. Level 5, not Level 4
+  - type: input
+    id: source
+    attributes:
+      label: Where can this be checked?
+      description: >-
+        A book and page, or a D&D Beyond link. This is what makes the fix quick,
+        but don't worry if you don't have it to hand.
+      placeholder: e.g. PHB 2024 p.283, or the D&D Beyond spell page
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else?
+      description: Other spells with the same problem, or anything that seems related.

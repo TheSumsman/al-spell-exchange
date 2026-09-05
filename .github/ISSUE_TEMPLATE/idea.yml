@@ -1,0 +1,26 @@
+name: Idea or suggestion
+description: Something that would make this more useful at an event.
+title: "[Idea] "
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas grounded in an event you actually ran are the most useful kind.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like it to do?
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would that solve?
+      description: What happens at the table today without it?
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else?

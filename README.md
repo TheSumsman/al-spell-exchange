@@ -164,29 +164,32 @@ recreate `TheMasterSpellbook/` as described in
 
 ## Something wrong? Ideas?
 
-Please say so — bug reports and rules corrections are both welcome, and you do
-not need to be a programmer to file one.
+Please say so. You do not need to be a programmer, and there is nothing to
+install — it's a web form, and a free GitHub account is the only requirement.
 
-**[Open an issue here.](https://github.com/TheSumsman/al-spell-exchange/issues)**
-It's a web form. You need a free GitHub account, and that's the only barrier;
-there is nothing to install and no code involved. Click **New issue**, describe
-what happened, and submit.
+**[Report it here.](https://github.com/TheSumsman/al-spell-exchange/issues/new/choose)**
+Pick whichever fits; each one asks a few short questions so you don't have to
+guess what's useful.
 
-Useful things to include, if you have them:
+| | Use it for |
+|---|---|
+| **Wrong or missing spell** | A spell absent from the list, or at the wrong level, school or source book |
+| **Something didn't work** | Setup, the form, or the workbook not behaving as documented |
+| **Rules or ruling disagreement** | You think an AL or PHB rule is applied incorrectly |
+| **Idea or suggestion** | Something that would make this more useful at an event |
 
-- What you expected and what you got instead — a screenshot of the tab is ideal.
-- Which step of [SETUP.md](SETUP.md) you were on.
-- Whether you're using the committed `build/SpellExchange.xlsx` or one you
-  rebuilt yourself.
+None of them fit? File a blank issue — questions are welcome, and you can't get
+the format wrong.
 
-Particularly worth reporting: **a spell that is missing, or listed at the wrong
-level or school.** That list is derived automatically, and a mistake in it is
-invisible until it costs a player the wrong amount of gold. Name the spell and
-the book it's from.
+**Spell errors are the most valuable reports.** That list is generated
+automatically, so a wrong level or a missing spell is invisible until it
+misprices someone at the table. Name the spell and, if you have it, the book and
+page.
 
-Rules disagreements are welcome too. The one organizer ruling above is a
-judgement call, and if you run Epics and think it's wrong, the reasoning is
-worth hearing.
+**Rules disagreements are welcome too.** One thing in this tool is a judgement
+call — the whole Epic counting as one session. Everything else is meant to be
+the rules as written, so if something else looks wrong, that's a mistake worth
+telling me about rather than a position I took deliberately.
 
 ## Going deeper
 

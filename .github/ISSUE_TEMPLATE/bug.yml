@@ -1,0 +1,58 @@
+name: Something didn't work
+description: The setup, the form, or the workbook didn't behave as documented.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        You don't need to know what caused it — just describe what you saw.
+
+        If a tab shows blank or `#REF!` after linking the form, check the
+        **Repoint the response tab** step in
+        [SETUP.md](https://github.com/TheSumsman/al-spell-exchange/blob/main/SETUP.md)
+        first. That one catches almost everybody.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: A screenshot of the tab is worth more than any description.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: step
+    attributes:
+      label: Where were you?
+      options:
+        - "1. Uploading the workbook to Drive"
+        - "2. Creating the form with the Apps Script"
+        - "2. Repointing the response tab"
+        - "2. Running the polish script"
+        - "3. Working through the test plan"
+        - "4. Sharing it / building the table tent"
+        - Running the event
+        - Rebuilding something myself
+        - Somewhere else
+    validations:
+      required: true
+  - type: dropdown
+    id: workbook
+    attributes:
+      label: Which workbook?
+      options:
+        - The one that came with the repo (build/SpellExchange.xlsx)
+        - One I rebuilt myself
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else?
+      description: Error messages, the Apps Script execution log, roughly how many wizards had registered.

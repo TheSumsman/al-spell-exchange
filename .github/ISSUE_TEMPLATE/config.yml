@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Setup problem? Read the runbook first
+    url: https://github.com/TheSumsman/al-spell-exchange/blob/main/SETUP.md
+    about: Most setup trouble is the "Repoint the response tab" step. Worth a look before filing.
+  - name: Not sure it's a problem? Ask anyway
+    url: https://github.com/TheSumsman/al-spell-exchange/issues/new
+    about: A blank issue is fine. Questions are welcome and you can't get the format wrong.
