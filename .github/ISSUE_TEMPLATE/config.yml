@@ -1,8 +1,10 @@
+# GitHub only supports these two keys. `contact_links` add extra buttons to the
+# "New issue" chooser alongside the four templates in this directory.
 blank_issues_enabled: true
 contact_links:
-  - name: Setup problem? Read the runbook first
+  - name: Setup problem? Check the runbook first
     url: https://github.com/TheSumsman/al-spell-exchange/blob/main/SETUP.md
-    about: Most setup trouble is the "Repoint the response tab" step. Worth a look before filing.
-  - name: Not sure it's a problem? Ask anyway
-    url: https://github.com/TheSumsman/al-spell-exchange/issues/new
-    about: A blank issue is fine. Questions are welcome and you can't get the format wrong.
+    about: A blank tab or #REF! after linking the form is almost always the "Repoint the response tab" step.
+  - name: Numbers look wrong? Check them against the test plan
+    url: https://github.com/TheSumsman/al-spell-exchange/blob/main/TESTPLAN.md
+    about: Three test wizards with the exact expected gold and downtime at every step, so you can pin down what disagrees.
