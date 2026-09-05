@@ -53,9 +53,14 @@ converts the time into downtime: **1 DT per spell for levels 1–4, 2 DT for
 levels 5–9**. Order of Scribes wizards instead copy ten level 1–4 spells, or
 five level 5–9 spells, per 1 DT (ALPG p.2) — their gold cost is unchanged.
 
-**Downtime is the binding constraint, not gold.** You earn 10 DT per session and
-levelling costs 10 DT, so a Tier 3 wizard with 40,000 GP can still only copy
-about ten spells. The Copy Planner is built around a DT budget for that reason.
+**Gold and downtime both matter**, so the Copy Planner totals both. Downtime is
+the one people forget: you earn 10 DT per session, levelling costs 10 DT and a
+Bastion turn 7 DT, so a wealthy wizard can still run out of days before gold.
+
+The planner's **Downtime budget** cell starts at **10** — the minimum a character
+is sure to have after the Epic. Downtime can be banked in a character's log, and
+the tool has no way to know how much, so tell players to change that cell to
+their real total before planning.
 
 **Eligibility.** You may only copy a spell of a level you can already prepare:
 `MaxSpellLevel = MIN(9, roundup(WizardLevel / 2))`.
@@ -64,19 +69,19 @@ about ten spells. The Copy Planner is built around a DT budget for that reason.
 immediately after a session in which you both played."* Registration therefore
 has to happen at the event, not afterwards.
 
-### Two organizer rulings are baked in
+### One organizer ruling is baked in
 
-Both are judgement calls, not rules text. Announce them at the start, and change
-them if you disagree — see [Rebuilding](#rebuilding).
+**The whole Epic counts as one session**, so any wizard present may copy from any
+other, regardless of table. ALPG never addresses multi-table Epics, so this fills
+a genuine gap. It is a judgement call — announce it at the start, and change it
+if you disagree.
 
-- **The whole Epic counts as one session**, so any wizard present may copy from
-  any other, regardless of table. ALPG never addresses multi-table Epics, so
-  this fills a genuine gap.
-- **50 GP per spell level.** The PHB's adjacent *"Copying the Book"* clause
-  prices a wizard copying a spell they already know into another book at 10 GP
-  and 1 hour per level — one fifth the cost. That reading is defensible when the
-  owner does the scribing, and a player will raise it. This tool charges 50 GP,
-  and the workbook's Read Me tab records the ruling.
+Everything else above is the rules as written, not a judgement call.
+
+> **If a player cites the PHB's *"Copying the Book"* clause** at 10 GP per level:
+> that clause covers duplicating your *own* spellbook into a replacement, not
+> learning a new spell from another wizard. It doesn't apply here. The workbook's
+> Read Me tab says so, so you only have the conversation once.
 
 ---
 
@@ -103,6 +108,13 @@ Common changes:
 
 Rebuild the workbook **before** linking a Form to it — rebuilding means
 re-uploading, and re-uploading means re-linking.
+
+> **Can't you just drag extra rows down in the Sheet?** No — and it fails
+> quietly, which is worse. Each wizard's row pulls its data with a literal row
+> number, `INDEX('Form Responses'!$D$1:$D$200, 7)`. Filling down copies that `7`
+> unchanged while the other references do move, so the new rows look right and
+> read blank. Adding a wizard also needs a new *column* on Matrix, Calc and Copy
+> Log, which fill-right gets wrong the same way. Raise `N_WIZ` and rebuild.
 
 ### Testing a change
 
@@ -149,6 +161,32 @@ recreate `TheMasterSpellbook/` as described in
 [DESIGN-NOTES.md](DESIGN-NOTES.md#re-scraping-the-listing).
 
 ---
+
+## Something wrong? Ideas?
+
+Please say so — bug reports and rules corrections are both welcome, and you do
+not need to be a programmer to file one.
+
+**[Open an issue here.](https://github.com/TheSumsman/al-spell-exchange/issues)**
+It's a web form. You need a free GitHub account, and that's the only barrier;
+there is nothing to install and no code involved. Click **New issue**, describe
+what happened, and submit.
+
+Useful things to include, if you have them:
+
+- What you expected and what you got instead — a screenshot of the tab is ideal.
+- Which step of [SETUP.md](SETUP.md) you were on.
+- Whether you're using the committed `build/SpellExchange.xlsx` or one you
+  rebuilt yourself.
+
+Particularly worth reporting: **a spell that is missing, or listed at the wrong
+level or school.** That list is derived automatically, and a mistake in it is
+invisible until it costs a player the wrong amount of gold. Name the spell and
+the book it's from.
+
+Rules disagreements are welcome too. The one organizer ruling above is a
+judgement call, and if you run Epics and think it's wrong, the reasoning is
+worth hearing.
 
 ## Going deeper
 

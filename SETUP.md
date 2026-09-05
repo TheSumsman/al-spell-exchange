@@ -122,19 +122,21 @@ to the right columns.
 Four things, or players will ask all day:
 
 1. **The whole Epic counts as one session** for spell copying — any wizard here
-   may copy from any other, regardless of table. This is an organizer ruling,
-   so say it out loud.
+   may copy from any other, regardless of table. This is the one organizer
+   ruling, so say it out loud.
 2. **Cost is 50 GP per spell level**, and 1 DT per spell for levels 1–4, 2 DT
    for levels 5–9.
 3. **You must register today.** The AL rule is "immediately after a session in
    which you both played" — the arithmetic can wait, the record cannot.
 4. **You can only copy spells of a level you can already prepare.**
+5. **Set your own downtime budget.** The Copy Planner starts at 10 DT, the
+   minimum everyone will have after the Epic. Anyone with downtime banked in
+   their log should change that cell to their real total.
 
-Expect a player to raise the PHB's *"Copying the Book"* clause, which would
-price it at 10 GP per level instead. This event charges 50 GP, and the
-workbook's Read Me tab records the ruling so you only have the argument once.
-[README.md](README.md#two-organizer-rulings-are-baked-in) has the reasoning if
-you want to change it.
+If a player raises the PHB's *"Copying the Book"* clause at 10 GP per level:
+that covers duplicating your own spellbook into a replacement, not learning a
+spell from another wizard, so it doesn't apply. The workbook's Read Me tab says
+so too.
 
 ---
 
@@ -142,5 +144,7 @@ you want to change it.
 
 The workbook is pre-sized for **24 wizards** and reads the first ~199 form
 responses. If more turn up, edit `N_WIZ` in `scripts/build_workbook.py` and
-rebuild — but do it *before* linking the form, since rebuilding means
-re-uploading. See [README.md](README.md#rebuilding).
+rebuild — do it *before* linking the form, since rebuilding means re-uploading.
+
+Don't try to drag extra rows down in the Sheet instead: the new rows will look
+correct and read blank. [README.md](README.md#rebuilding) explains why.

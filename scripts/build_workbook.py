@@ -111,7 +111,7 @@ def build(spells=None, n_wiz=None, out=None):
         ("5. Open 'Copy Log' for the list of what you copied, what it cost, and from", None),
         ("   whom - plus a line of text ready to paste into your character log.", None),
         ("", None),
-        ("THE COST (as ruled for this event)", TITLE_FONT),
+        ("THE COST", TITLE_FONT),
         ("50 GP per spell level, and 1 Downtime Day per spell for spell levels 1-4, "
          "2 DT per spell for levels 5-9.", None),
         ("", None),
@@ -133,20 +133,30 @@ def build(spells=None, n_wiz=None, out=None):
          "spells, for 1 DT.", None),
         ("This workbook applies that rate automatically when the subclass is recorded.", NOTE_FONT),
         ("", None),
-        ("DOWNTIME IS THE REAL CONSTRAINT", TITLE_FONT),
-        ("You earn 10 DT per session (ALPG p.6), and levelling up costs 10 DT, a Bastion "
-         "turn 7 DT.", None),
-        ("So a Tier 3 wizard sitting on 40,000 GP can still only copy about ten spells. "
-         "Budget downtime, not gold.", None),
+        ("GOLD AND DOWNTIME", TITLE_FONT),
+        ("Both matter, so this workbook totals both. Downtime is the one people forget: "
+         "you earn 10 DT", None),
+        ("per session (ALPG p.6), levelling up costs 10 DT and a Bastion turn 7 DT.", None),
         ("", None),
-        ("RULINGS FOR THIS EVENT", TITLE_FONT),
+        ("The Downtime budget on Copy Planner starts at 10 - the minimum you are sure to "
+         "have after", None),
+        ("this Epic. If your character has downtime banked in their log, change that cell "
+         "to your real total.", NOTE_FONT),
+        ("", None),
+        ("RULING FOR THIS EVENT", TITLE_FONT),
         ("* The whole Epic counts as one session: any wizard present may copy from any "
          "other wizard present.", None),
-        ("* Copying costs 50 GP per spell level. (The PHB's adjacent 'Copying the Book' "
-         "clause prices a wizard", None),
-        ("  copying a spell they already know into another book at 10 GP per level. "
-         "That is NOT the ruling here.)", NOTE_FONT),
-        ("* You may only copy a spell of a level you can already prepare.", None),
+        ("  ALPG does not address multi-table Epics, so this fills a genuine gap.", NOTE_FONT),
+        ("", None),
+        ("Everything else here is the rules as written, quoted above - 50 GP per spell "
+         "level, and you may", None),
+        ("only copy a spell of a level you can already prepare. Neither is a judgement "
+         "call.", None),
+        ("", None),
+        ("If a player cites the PHB's 'Copying the Book' clause at 10 GP per level: that "
+         "covers duplicating", NOTE_FONT),
+        ("your own spellbook into a replacement, not learning a spell from another "
+         "wizard. It does not apply.", NOTE_FONT),
         ("", None),
         ("Spell list: %d leveled wizard spells from the AL-legal Forgotten Realms sources. "
          "Cantrips are excluded" % n, NOTE_FONT),
@@ -299,7 +309,8 @@ def build(spells=None, n_wiz=None, out=None):
     bud.value = 10
     bud.fill = PatternFill("solid", fgColor="FFF3B0")
     bud.border = BORDER
-    cp["C2"] = "ALPG p.6: you earn 10 DT per session"
+    cp["C2"] = ("10 DT is the minimum you are sure to have after this Epic - "
+                "change it to your character's real total if more is banked")
     cp["C2"].font = NOTE_FONT
 
     last = PLAN_TOP + n - 1
