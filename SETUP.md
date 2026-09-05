@@ -1,11 +1,10 @@
 # Organizer runbook
 
-How to stand up the Wizard Spell Exchange for one event. See
-**[README.md](README.md)** for what it is and why it works this way.
+How to stand up the Wizard Spell Exchange for one event. About 10 minutes.
 
-About 10 minutes. You need a Google account and nothing else — the workbook and
-both scripts are committed under `build/`, so there is nothing to build and
-nothing to type by hand.
+You need a Google account and nothing else — the workbook and both scripts are
+in `build/`, ready to use. See [README.md](README.md) for what the tool does and
+[DESIGN-NOTES.md](DESIGN-NOTES.md) for why it is built this way.
 
 ---
 
@@ -28,25 +27,32 @@ nothing to type by hand.
    on first run; run again if it stops at the consent screen.
 5. Open the **Execution log** (Ctrl+Enter) for the LIVE and EDIT links.
 
-The script creates all 16 questions in the exact order the workbook expects,
-with all 350 spells as checkbox options, one page per spell level, and every
-setting configured — except one.
+That creates all 16 questions in the order the workbook expects, with all 350
+spells as checkbox options, one page per spell level, and every setting
+configured except one.
 
-### The one setting the script can't set
+> Prefer to build the form by hand? `data/form-options/level-*.txt` are the same
+> lists as plain text, one spell per line — Google Forms turns a
+> newline-separated paste into one option per line. The question order then
+> matters; check it against `verify_form_script.js`.
 
-Apps Script has no API for response receipts. Open the form and set
-**Settings → Responses → "Send responders a copy of their response" → Always**.
+### Turn on response receipts
 
-Don't skip it: that receipt email is how a player edits their entry after they
+Open the form and set **Settings → Responses → "Send responders a copy of their
+response" → Always**. The script cannot set this one; Apps Script has no API
+for it.
+
+Don't skip it. That receipt email is how a player edits their entry after they
 get home, which is half the point of the exercise.
 
-### Repoint the response tab (you will always need this)
+### Repoint the response tab
 
-Google **always** creates its own new tab — typically `Form Responses 1` — when
-you link a form to a spreadsheet. It will never write into the `Form Responses`
-tab that ships with the workbook. That is expected, not a fault.
+You will always need this. Google creates its own new tab — typically
+`Form Responses 1` — when you link a form to a spreadsheet, and never writes
+into the `Form Responses` tab that ships with the workbook. That is expected,
+not a fault.
 
-**Rename nothing.** Just repoint the formulas at Google's tab, then delete the
+**Rename nothing.** Repoint the formulas at Google's tab, then delete the
 placeholder:
 
 1. Note the exact name Google gave its new tab — usually `Form Responses 1`.
@@ -59,51 +65,24 @@ placeholder:
 3. Delete the now-empty `Form Responses` tab. This is safe *because step 2 left
    nothing pointing at it*.
 
-> Order matters. Deleting a sheet that formulas still reference turns every one
-> of them into `#REF!` permanently, and recreating a sheet by the same name does
-> not heal them. Repoint first, delete second — never the other way round.
+> **Order matters.** Deleting a sheet that formulas still reference turns every
+> one of them into `#REF!` permanently, and recreating a sheet by the same name
+> does not heal them. Repoint first, delete second — never the other way round.
 
 Check the **Wizards** tab picks up your submissions and the **Matrix** fills in.
 
-### Then run the polish script
+### Run the polish script
 
-Three things cannot survive an .xlsx import and must be applied in Sheets:
-the character dropdown on Copy Planner (cross-sheet data validation is dropped),
-the **checkboxes** in the Want column (.xlsx has no checkbox cell type), and the
-**colour coding** on the Status column.
+Three things don't survive the .xlsx import and have to be added in Sheets: the
+character dropdown on Copy Planner, the checkboxes in the Want column, and the
+colour coding on the Status column.
 
 1. In the Sheet: **Extensions → Apps Script**.
 2. Paste in the whole of `build/PolishSpellExchangeSheet.gs`.
 3. **Run → polishSheet**, approve the prompt, read the Execution log.
 
 Run it **after** linking the form and repointing the formulas — the dropdown
-reads the Wizards tab, which is empty until then. Safe to re-run; it clears its
-own formatting rules rather than stacking them.
-
-### Why the formulas can survive this at all
-
-Google Forms **inserts** a row for each response rather than filling the next
-blank one, and that insert lands exactly where a plain reference points. A
-formula reading `'Form Responses'!D2` silently becomes `D3` after one response,
-`D4` after two — the whole workbook drifts off the data, one row per submission.
-It reads blank rather than wrong, which is a slow way to notice.
-
-So every reference into the response tab is written as a **bounded `INDEX`**:
-
-```
-INDEX('Form Responses'!$D$1:$D$200, 2)
-```
-
-Inserting a row extends the range's end but leaves `INDEX`'s literal row number
-alone, so it cannot drift. `verify_workbook.py` fails the build if a plain row
-reference ever reappears.
-
-The 200-row bound is headroom for a 24-wizard roster; past ~199 responses the
-workbook needs rebuilding anyway.
-
-> `data/form-options/level-*.txt` are the same lists as plain text, one spell
-> per line. They're only a fallback if you'd rather build the form by hand —
-> Google Forms turns a newline-separated paste into one option per line.
+reads the Wizards tab, which is empty until then. Safe to re-run.
 
 ---
 
@@ -112,10 +91,9 @@ workbook needs rebuilding anyway.
 Work through **[TESTPLAN.md](TESTPLAN.md)** — three test wizards with exact
 expected numbers at every step. Twenty minutes, done once.
 
-It exists because the offline suite already proves the formulas and the form's
-column order; what it *cannot* prove is that the xlsx-to-Sheets conversion kept
-the dropdowns, filters and `TEXTJOIN` behaviour intact, or that the response tab
-is wired to the right columns. That is what the test plan checks.
+It checks the things only a real Google Sheet can show: that the conversion kept
+the formulas, dropdowns and filters intact, and that the response tab is wired
+to the right columns.
 
 ## 4. Share it
 
@@ -123,7 +101,7 @@ is wired to the right columns. That is what the test plan checks.
   edit access; everything is calculated.
 - Share the **Form** link for registration. Check it in a logged-out browser to
   confirm it doesn't demand a Google account.
-- Build the table tent with your form link embedded as a QR code:
+- Build the table tent with your form link as a QR code:
   ```
   python scripts/make_table_tent.py --url https://forms.gle/your-form-link
   ```
@@ -137,9 +115,6 @@ is wired to the right columns. That is what the test plan checks.
   It should come out as **one** A5 page. If you get two, the print dialog is
   adding its own margins on top of the page's — set margins to None/Default.
 
-  Re-run `make_table_tent.py` with no `--url` afterwards to reset the file to a
-  blank placeholder, so your event's form link isn't left sitting in the repo.
-
 ---
 
 ## 5. Announce at the start of the Epic
@@ -147,25 +122,25 @@ is wired to the right columns. That is what the test plan checks.
 Four things, or players will ask all day:
 
 1. **The whole Epic counts as one session** for spell copying — any wizard here
-   may copy from any other wizard here, regardless of table. *(This is an
-   organizer ruling. ALPG says "a session in which you both played" and never
-   addresses multi-table Epics, so say it out loud.)*
+   may copy from any other, regardless of table. This is an organizer ruling,
+   so say it out loud.
 2. **Cost is 50 GP per spell level**, and 1 DT per spell for levels 1–4, 2 DT
    for levels 5–9.
 3. **You must register today.** The AL rule is "immediately after a session in
    which you both played" — the arithmetic can wait, the record cannot.
 4. **You can only copy spells of a level you can already prepare.**
 
-Expect one player to point out the PHB's *"Copying the Book"* clause, which
-prices a wizard copying a spell they already know into another book at 10 GP and
-1 hour per level — one fifth the cost. It is a genuinely defensible reading when
-the owner does the scribing. The ruling for this event is 50 GP; the Read Me tab
-records that so you only have to have the argument once.
+Expect a player to raise the PHB's *"Copying the Book"* clause, which would
+price it at 10 GP per level instead. This event charges 50 GP, and the
+workbook's Read Me tab records the ruling so you only have the argument once.
+[README.md](README.md#two-organizer-rulings-are-baked-in) has the reasoning if
+you want to change it.
 
 ---
 
 ## Roster size
 
-The workbook is pre-sized for **24 wizards**. If more turn up, edit `N_WIZ` at
-the top of `scripts/build_workbook.py` and rebuild — but do it *before* linking
-the form, since rebuilding means re-uploading.
+The workbook is pre-sized for **24 wizards** and reads the first ~199 form
+responses. If more turn up, edit `N_WIZ` in `scripts/build_workbook.py` and
+rebuild — but do it *before* linking the form, since rebuilding means
+re-uploading. See [README.md](README.md#rebuilding).
