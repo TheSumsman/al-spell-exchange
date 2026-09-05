@@ -18,6 +18,13 @@ TheMasterSpellbook/
 # ---------------------------------------------------------------------------
 *.pdf
 
+# ---------------------------------------------------------------------------
+# Never publish: Microsoft Office lock / owner files.
+# Created while a workbook or document is open, and they contain the NAME of
+# whoever has it open. One was committed by accident; hence the explicit rule.
+# ---------------------------------------------------------------------------
+~$*
+
 # Python
 __pycache__/
 *.py[cod]
