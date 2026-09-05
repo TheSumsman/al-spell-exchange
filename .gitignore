@@ -1,0 +1,33 @@
+# ---------------------------------------------------------------------------
+# Never publish: saved D&D Beyond listing pages.
+# ~140 MB of copyrighted WotC content, and the input to extract_spells.py.
+# The spell list derived from it (data/wizard-spells.csv) IS committed; the
+# source pages are not. See "Rebuilding the spell list" in README.md.
+# ---------------------------------------------------------------------------
+TheMasterSpellbook/
+
+# ---------------------------------------------------------------------------
+# Never publish: the rendered table tent.
+# make_table_tent.py --url embeds a live Google Form link, and the rendered PDF
+# carries it in a link annotation. Ignore the PDF by extension so a stray render
+# under any name cannot be committed by accident.
+#
+# build/table-tent.html IS committed, but only in its blank-placeholder state:
+# re-run `python scripts/make_table_tent.py` with no --url to reset it before
+# committing. SETUP.md step 4 says the same.
+# ---------------------------------------------------------------------------
+*.pdf
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

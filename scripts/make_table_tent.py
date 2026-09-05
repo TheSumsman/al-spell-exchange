@@ -1,0 +1,153 @@
+"""Generate build/table-tent.html - a printable A5 sign for the event table.
+
+    python scripts/make_table_tent.py --url https://forms.gle/xxxxxxxx
+
+The QR code is generated locally and embedded as a data URI, so the printed
+page needs no network access. Without --url you still get a usable sign with a
+blank box to paste a QR into by hand.
+"""
+import argparse
+import base64
+import io
+import os
+import sys
+from html import escape as html_escape
+
+sys.stdout.reconfigure(encoding="utf-8")
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = os.path.join(ROOT, "build", "table-tent.html")
+
+
+def qr_data_uri(url):
+    try:
+        import qrcode
+    except ImportError:
+        print("  (qrcode not installed - leaving a blank box)")
+        return None
+    img = qrcode.make(url, box_size=10, border=2)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+HTML = """<!doctype html>
+<meta charset="utf-8">
+<title>Wizard Spell Exchange - table tent</title>
+<style>
+  @page {{ size: A5; margin: 9mm; }}
+  :root {{ color-scheme: light; }}
+  * {{ box-sizing: border-box; }}
+  body {{
+    margin: 0; padding: 9mm;
+    font: 14px/1.4 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    color: #1b1b1b; background: #fff;
+  }}
+  /* @page already supplies the margin when printing -- padding here too would
+     double it and push the sign onto a second sheet. */
+  @media print {{ body {{ padding: 0; }} }}
+  h1 {{ font-size: 27px; margin: 0 0 2px; letter-spacing: -0.01em; }}
+  .sub {{ font-size: 14px; color: #6a5a3a; margin: 0 0 14px;
+          text-transform: uppercase; letter-spacing: .09em; }}
+  .row {{ display: flex; gap: 14px; align-items: flex-start; }}
+  .qr {{ flex: 0 0 42mm; text-align: center; }}
+  .qr img {{ width: 42mm; height: 42mm; display: block; }}
+  .qrbox {{ width: 42mm; height: 42mm; border: 2px dashed #b9b0a0;
+            display: flex; align-items: center; justify-content: center;
+            color: #9a9384; font-size: 12px; text-align: center; padding: 6px; }}
+  /* overflow-wrap (not word-break: break-all) so the URL prefers to break at
+     the <wbr> hints after each "/" and only chops mid-token as a last resort. */
+  .qr .url {{ font-size: 10px; overflow-wrap: anywhere; margin-top: 5px;
+              font-family: ui-monospace, Consolas, monospace; }}
+  .qr .url a {{ color: #3a3a3a; text-decoration: none; }}
+  ol {{ margin: 0 0 12px 17px; padding: 0; }}
+  li {{ margin-bottom: 5px; }}
+  .cost {{ border: 1px solid #d8d0be; background: #faf7f0;
+           padding: 9px 11px; margin: 12px 0; }}
+  .cost b {{ display: block; font-size: 13px; text-transform: uppercase;
+             letter-spacing: .07em; color: #6a5a3a; margin-bottom: 4px; }}
+  table {{ border-collapse: collapse; width: 100%; font-size: 13px; }}
+  th, td {{ border: 1px solid #ded6c6; padding: 3px 5px; text-align: center; }}
+  th {{ background: #f1ece1; font-weight: 600; }}
+  .rule {{ font-size: 12.5px; color: #444; border-left: 3px solid #b9985a;
+           padding-left: 9px; margin-top: 12px; }}
+  .rule em {{ color: #222; }}
+</style>
+
+<h1>Wizard Spell Exchange</h1>
+<p class="sub">Adventurers League Epic &middot; Forgotten Realms</p>
+
+<div class="row">
+  <div class="qr">
+    {qr}
+    {url}
+  </div>
+  <div>
+    <ol>
+      <li><b>Scan and register your spellbook</b> &mdash; tick the spells you
+          already have. One entry per wizard.</li>
+      <li>You'll get an <b>email with a link to edit</b> your entry later.</li>
+      <li>After the event, open the results sheet and use the
+          <b>Copy Planner</b> to see what you can copy, from whom, and what it costs.</li>
+    </ol>
+    <div class="cost">
+      <b>What copying costs</b>
+      50 GP per spell level, plus downtime:
+      <table>
+        <tr><th>Spell level</th><th>1&ndash;4</th><th>5&ndash;9</th></tr>
+        <tr><td>Downtime</td><td>1 DT each</td><td>2 DT each</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<p class="rule">
+  <b>Settle it today.</b> ALPG p.3: <em>&ldquo;You may copy spells from a
+  character's spellbook immediately after a session in which you both
+  played.&rdquo;</em> For this Epic the whole event counts as one session, so
+  any wizard here may copy from any other wizard here &mdash; but you must
+  record it now.
+</p>
+<p class="rule">
+  <b>Downtime is the real limit.</b> You earn 10 DT per session, and levelling
+  up costs 10 DT. Gold is rarely what stops you. <em>Order of Scribes</em>
+  wizards copy ten level 1&ndash;4 spells for 1 DT.
+</p>
+"""
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--url", help="the Google Form link players should scan")
+    args = ap.parse_args()
+
+    if args.url:
+        uri = qr_data_uri(args.url)
+        qr = ('<img src="%s" alt="QR code to the form">' % uri if uri
+              else '<div class="qrbox">Paste a QR code here</div>')
+        # A real anchor, so headless Chrome emits a clickable link annotation in
+        # the PDF -- styled text alone gives you nothing to click. <wbr> after
+        # each "/" lets long URLs wrap at readable boundaries instead of
+        # mid-token, which also makes them transcribable by hand.
+        safe = html_escape(args.url)
+        url = ('<div class="url"><a href="%s">%s</a></div>'
+               % (safe, safe.replace("/", "/<wbr>")))
+        if len(args.url) > 60:
+            print("  note: that URL is %d characters, so it still has to wrap."
+                  % len(args.url))
+            print("        A forms.gle short link (form > Send > link > Shorten")
+            print("        URL) prints on one line and gives a cleaner QR code.")
+    else:
+        qr = '<div class="qrbox">Re-run with --url to embed a QR code</div>'
+        url = ""
+
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
+    with open(OUT, "w", encoding="utf-8") as fh:
+        fh.write(HTML.format(qr=qr, url=url))
+    print("Wrote %s" % OUT)
+    if not args.url:
+        print("  no --url given: open it, then print to PDF once you have the form link")
+
+
+if __name__ == "__main__":
+    main()

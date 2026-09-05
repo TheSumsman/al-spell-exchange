@@ -1,0 +1,42 @@
+Arcane Eye
+Backlash
+Banishment
+Blight
+Charm Monster
+Confusion
+Conjure Minor Elementals
+Control Water
+Dimension Door
+Distorted Distance
+Divination
+Elemental Bane
+Evard's Black Tentacles
+Fabricate
+Festering Blast
+Fire Shield
+Galder's Speedy Courier
+Gate Seal
+Greater Invisibility
+Hallucinatory Terrain
+Ice Storm
+Leomund's Secret Chest
+Locate Creature
+Mordenkainen's Faithful Hound
+Mordenkainen's Private Sanctum
+Otiluke's Resilient Sphere
+Phantasmal Killer
+Polymorph
+Raulothim's Psychic Lance
+Sickening Radiance
+Spellfire Storm
+Spirit of Death
+Stone Shape
+Stoneskin
+Storm Sphere
+Summon Aberration
+Summon Construct
+Summon Elemental
+Summon Greater Demon
+Vitriolic Sphere
+Wall of Fire
+Watery Sphere
