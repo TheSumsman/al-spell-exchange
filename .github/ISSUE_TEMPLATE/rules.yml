@@ -6,13 +6,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        Welcome and useful — especially if you run Epics yourself.
+        Rules corrections are welcome, particularly from someone who runs
+        Epics and has had to make these calls at a table.
 
         Worth knowing before you file: exactly one thing in this tool is a
         judgement call, and that's **the whole Epic counting as one session**.
         Everything else is meant to be the rules as written. So if something
-        else looks wrong, it's a bug in this tool rather than a position it
-        took deliberately, and that's worth reporting.
+        else looks wrong, it's a mistake rather than a deliberate position —
+        which makes it well worth reporting.
   - type: dropdown
     id: which
     attributes:
