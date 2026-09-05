@@ -139,8 +139,6 @@ is wired to the right columns. That is what the test plan checks.
 
   Re-run `make_table_tent.py` with no `--url` afterwards to reset the file to a
   blank placeholder, so your event's form link isn't left sitting in the repo.
-  The rendered PDF carries the link too — in a link annotation, where a search
-  of the file's text won't obviously show it — so `*.pdf` is gitignored.
 
 ---
 
