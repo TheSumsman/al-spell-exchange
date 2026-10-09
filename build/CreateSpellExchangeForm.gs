@@ -475,8 +475,10 @@ function createSpellExchangeForm() {
   for (var i = 1; i <= 20; i++) { levels.push(String(i)); }
   form.addListItem()
       .setTitle('Wizard level')
-      .setHelpText('Your levels in the Wizard class. This sets which spell ' +
-                   'levels you are allowed to copy.')
+      .setHelpText('Your levels in the Wizard class right now. This sets which ' +
+                   'spell levels you are allowed to copy. Levelling up at the ' +
+                   'end of the Epic? Enter your current level here, and the ' +
+                   'new one on the Copy Planner when you plan.')
       .setChoiceValues(levels)
       .setRequired(true);
 

@@ -24,6 +24,29 @@ and asserts that the question order matches the columns the workbook reads
 (C=Player … R=Other), that the per-level choice counts match the CSV, and that
 the email and editing settings are right.
 
+## No TEXTJOIN — lists are joined with `&`
+
+Organizers download the Sheet back out as .xlsx, and that copy has to work in
+whatever Excel they own. `TEXTJOIN` fails there twice over: Excel 2016 doesn't
+have it, and Google's export writes it without the `_xlfn.` prefix newer Excel
+expects on post-2007 functions. A downloaded copy showed `#NAME?` down the
+whole Matrix *Owners* column in Excel 2016.
+
+So every list — Owners, the players on each Copy Log row, the log entry — is
+built by `joined()` in `build_workbook.py`. Each helper cell holds either `""`
+or the separator plus a value (`", Bexley"`); the list is all of them
+concatenated with `&`, and `MID(…, 3, 32767)` drops the leading separator.
+Empty cells add nothing, so there are no stray delimiters to clean up.
+
+The chain grows about six characters per wizard. Excel's formula limit is
+8,192 characters, so this would only bite at around 1,300 wizards — far past
+the ~199 form responses the workbook reads. `verify_workbook.py` fails if
+`TEXTJOIN`, `CONCAT` or any other post-2007 function appears.
+
+A side benefit: the offline evaluator handles `&` exactly, where it mishandled
+`TEXTJOIN`'s empty-cell skipping, so these cells are now checked to the
+character instead of eyeballed in Sheets.
+
 ## Never write a plain reference into the response tab
 
 Google Forms **inserts** a row per response rather than filling the next blank
@@ -54,6 +77,47 @@ placeholder deleted **afterwards**.
 
 Deleting first turns every reference into `#REF!` permanently — recreating a
 sheet by the same name does not heal them. SETUP.md gives the sequence.
+
+---
+
+## Why levelling up is a planner cell, not a Form question
+
+A character who levels up at the end of the Epic copies at the new level. That
+input lives on Copy Planner (`B5`), under the gold and downtime budgets, for three
+reasons:
+
+- **A new Form question shifts every column** — see above. It could be appended
+  after column R, but the next two reasons make that pointless.
+- **Registration records a fact; levelling is a plan.** Players register at the
+  table, often before they've decided whether to level up, and the Wizards tab
+  should show the character as they played. Only the copier's own reach
+  changes, so only their own planner needs to know.
+- **It is the same kind of input as the budgets** — a per-character
+  number the tool can't know, set by the player when they plan.
+
+The planner uses the higher of the registered level and `B5`, so a typo or a
+lower number can't take spells away. It doesn't touch the downtime budget:
+whatever levelling costs, the player sets the budget to what they have left.
+
+## The Copy Planner's budget panel
+
+Gold and downtime get **identical** treatment — an entry cell, the cost of the
+ticked spells, what's left, and an `OVER BUDGET` / `WITHIN BUDGET` verdict.
+Which one a character runs short of is down to the character, so the layout
+deliberately doesn't favour either. Gold starts blank rather than at a guessed
+default, so the planner never shows a comparison against a number the player
+didn't enter.
+
+The red/green colouring is a Sheets conditional format applied by
+`PolishSpellExchangeSheet.gs`, since conditional formats don't survive the
+.xlsx import. The verdict is also written out as text, so an unpolished sheet
+still says when a plan is over budget.
+
+Other tabs, the polish script and the verifier address planner cells through
+the `CP_*` constants in `build_workbook.py`, never by literal address. The
+hidden lookups (wizard index, max spell level, Scribes flag, level used, tick
+count) live in hidden columns `K:L`, so the visible panel can grow downwards
+without colliding with them.
 
 ---
 
@@ -141,15 +205,50 @@ otherwise compare zero spells against zero and print a meaningless `PASS`.
 code, seeds it with three known wizards, evaluates every formula and asserts the
 results — max spell levels, presence detection, `OWNED` / `CAN COPY` /
 `TOO HIGH` statuses, per-spell and total costs, the Copy Log rows and log entry,
-and the Order of Scribes rate (four level 1–4 spells cost 4 DT normally, 1 DT
-for a Scribe, gold unchanged). It also enforces the bounded-`INDEX` rule above.
+the Order of Scribes rate (four level 1–4 spells cost 4 DT normally, 1 DT
+for a Scribe, gold unchanged), both budgets going over and under
+independently, and levelling up (a level 3 wizard entering 5 can copy level 3
+spells; entering 1 changes nothing). Lists of names and the log entry are
+checked character for character. It also enforces the bounded-`INDEX` rule
+above, and an allowlist of spreadsheet functions: anything not known to exist in
+both Google Sheets and Excel 2007 fails, so the next `TEXTJOIN` is caught too.
+
+`verify_polish_script.js` runs the polish script against a mock
+`SpreadsheetApp`, taking its expectations from the **built workbook** rather
+than the script's own constants. So if the layout moves and the script doesn't
+follow, it fails. It also checks that every Status colour matches text the
+Status formula can actually produce, and runs the script twice to prove
+re-running doesn't stack duplicate rules or remove an organizer's own.
+
+`verify_table_tent.py` prints the sign three ways — the committed placeholder,
+a short link, a long link that wraps — and requires exactly one A5 page each,
+with a clickable link where there is one.
+
+`check_artifacts.py` is about what is committed rather than whether it works:
+
+- **Nothing that must not be published.** No lock files, PDFs, scraped pages,
+  scratch notes, or Office files other than the generated workbook.
+- **No event data.** No form link in the table tent and no spreadsheet id in the
+  Form script. The workbook's metadata must say openpyxl wrote it and nothing
+  saved it since: Excel and Sheets both record the editor's name.
+- **`build/` is current.** Every artifact is compared with a fresh render, the
+  workbook cell by cell, so a hand edit or a used workbook fails like a missing
+  rebuild does. `data/form-options/` must match what `make_form_script.py`
+  writes from the CSV — it is their only writer; `extract_spells.py` calls it.
+
+Its failure messages name cells and files, never their contents, because CI
+logs are public and a mismatched cell may hold a player's name.
+
+With `--staged` (the pre-commit hook) it writes the index out to a temporary
+directory and checks that. Comparing staged artifacts against the working
+tree's scripts would pass a commit that pairs a new workbook with old code, or
+refuse a correct one that leaves unrelated edits unstaged.
 
 ---
 
 ## Before committing a change
 
-- Re-run `make_table_tent.py` with **no** `--url` to reset `build/table-tent.html`
-  to a blank placeholder, so an event's form link isn't left in the repo.
-  Rendered PDFs keep the link in a link annotation and are gitignored entirely.
-- `build/` is committed, so rebuild and re-run both verifiers before pushing:
-  a stale workbook in `build/` is worse than none.
+Turn on the hook (`git config core.hooksPath scripts/hooks`) and it enforces
+what used to be this checklist: the table tent reset to its placeholder, the
+Form script without a spreadsheet id, and `build/` rebuilt and staged with the
+change that produced it. The formula suite and the print check run in CI.

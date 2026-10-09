@@ -97,20 +97,8 @@ def main():
 
     failures = []
 
-    def tidy(s):
-        """Collapse the stray delimiters the offline evaluator leaves in TEXTJOIN.
-
-        Excel and Google Sheets both drop formula-returned "" when TEXTJOIN's
-        ignore_empty argument is TRUE; the `formulas` library joins them anyway,
-        yielding ", , , Web, , ,". That is an evaluator limitation, not a defect
-        in the workbook -- but it does mean the Owners and 'Which spells' columns
-        must be eyeballed once in Google Sheets. SETUP.md lists that check.
-        """
-        parts = [p.strip() for p in str(s).split(",")]
-        return ", ".join(p for p in parts if p)
-
-    def check(label, got, want, textjoin=False):
-        got_s = tidy(got) if textjoin else str(got).strip()
+    def check(label, got, want):
+        got_s = str(got).strip()
         want_s = str(want).strip()
         ok = got_s == want_s
         if not ok:  # tolerate 2.0 vs 2 from the evaluator's float arithmetic
@@ -146,6 +134,31 @@ def main():
     if bad:
         print("      first offenders:", ", ".join(bad[:5]))
 
+    # ---- regression: only functions both Sheets and Excel 2007+ have ----
+    # TEXTJOIN shipped once: Excel 2016 lacks it, and Google's .xlsx export
+    # drops the _xlfn. prefix newer Excel expects, so a copy downloaded from
+    # Sheets showed #NAME? down the whole Matrix Owners column. An allowlist
+    # rather than a list of known-bad names, so the NEXT such function fails
+    # here too. Adding to it means checking the function exists in Google
+    # Sheets AND in Excel 2007 -- not just in whatever Excel is to hand.
+    print("\nFormulas use only functions Sheets and Excel 2007+ share")
+    allowed = {"AND", "CEILING", "COUNT", "COUNTIF", "COUNTIFS", "IF", "IFERROR",
+               "INDEX", "ISNUMBER", "MATCH", "MID", "MIN", "OR", "SEARCH",
+               "SMALL", "SUMIF"}
+    literal = re.compile(r'"(?:[^"]|"")*"')     # skip text like " (L2, ..."
+    call = re.compile(r"\b([A-Z][A-Z0-9._]*)\(")
+    late = {}
+    for sheet in check_wb.worksheets:
+        for row in sheet.iter_rows():
+            for cell in row:
+                v = cell.value
+                if isinstance(v, str) and v.startswith("="):
+                    for fn in set(call.findall(literal.sub('""', v))) - allowed:
+                        late.setdefault(fn, "%s!%s" % (sheet.title, cell.coordinate))
+    check("no function outside the allowlist", len(late), 0)
+    for fn, where in sorted(late.items()):
+        print("      %s, first at %s" % (fn, where))
+
     print("\nWizards tab -- max spell level = MIN(9, roundup(level/2))")
     check("Aria (wizard 3) max spell level", val("Wizards", "D2"), 2)
     check("Bexley (wizard 9) max spell level", val("Wizards", "D3"), 5)
@@ -175,7 +188,8 @@ def main():
     check("Bexley has Web", val("Matrix", "E5"), 1)
     check("Wish owned by exactly 1", val("Matrix", cnt + "9"), 1)
     check("Shield owned by exactly 2", val("Matrix", cnt + "3"), 2)
-    check("Owners of Fireball", val("Matrix", own + "6"), "Bexley, Cirilla", textjoin=True)
+    check("Owners of Fireball", val("Matrix", own + "6"), "Bexley, Cirilla")
+    check("Owners of Wish", val("Matrix", own + "9"), "Cirilla")
 
     print("\nCopy Planner -- status for Aria (level 3, max spell level 2)")
     top = bw.PLAN_TOP
@@ -188,10 +202,15 @@ def main():
     check("Web GP", val("Copy Planner", "G%d" % (top + 3)), 100)
     check("Web DT", val("Copy Planner", "H%d" % (top + 3)), 1)
     check("Wall of Force DT (L5 -> 2)", val("Copy Planner", "H%d" % (top + 6)), 2)
-    check("Selected count", val("Copy Planner", "D2"), 1)
-    check("Total GP (Web only)", val("Copy Planner", "E2"), 100)
-    check("Total DT (Web only)", val("Copy Planner", "F2"), 1)
-    check("DT remaining (10 - 1)", val("Copy Planner", "G2"), 9)
+    check("Selected count", val("Copy Planner", bw.CP_COUNT), 1)
+    check("Total GP (Web only)", val("Copy Planner", bw.CP_GP_TOTAL), 100)
+    check("Total DT (Web only)", val("Copy Planner", bw.CP_DT_TOTAL), 1)
+    check("DT left (10 - 1)", val("Copy Planner", bw.CP_DT_LEFT), 9)
+    check("DT within budget", val("Copy Planner", bw.CP_DT_STATUS), "WITHIN BUDGET")
+    # Gold starts blank: no comparison is made until the player enters a total.
+    check("GP left blank with no gold entered", val("Copy Planner", bw.CP_GP_LEFT), "")
+    check("GP status asks for a total",
+          "enter your total" in str(val("Copy Planner", bw.CP_GP_STATUS)), True)
 
     # Copy Log is per SPELL, not per lender. Gold and downtime are expended by
     # the copier, so a table addressed to each lender was the wrong model: what
@@ -200,23 +219,17 @@ def main():
     check("row 1 spell", val("Copy Log", "B12"), "Web")
     check("row 1 level", val("Copy Log", "C12"), 2)
     check("row 1 GP", val("Copy Log", "D12"), 100)
-    check("row 1 from character", val("Copy Log", "E12"), "Bexley", textjoin=True)
-    check("row 1 from player", val("Copy Log", "F12"), "Sam", textjoin=True)
+    check("row 1 from character", val("Copy Log", "E12"), "Bexley")
+    check("row 1 from player", val("Copy Log", "F12"), "Sam")
     check("row 2 blank (only one spell ticked)", val("Copy Log", "B13"), "")
     check("summary Total GP", val("Copy Log", "D5"), 100)
     check("summary Total DT", val("Copy Log", "E5"), 1)
     # Unused rows must contribute NOTHING to the log entry. Guarding on a
-    # numeric column instead of the index built stray " (from )" fragments,
-    # which TEXTJOIN then quite correctly kept.
+    # numeric column instead of the index built stray " (from )" fragments.
     check("unused row 13 fragment is empty", val("Copy Log", "H13"), "")
-    # The log entry nests TEXTJOIN inside TEXTJOIN, so the offline evaluator's
-    # refusal to drop empty strings shows up twice over. Assert the PARTS are
-    # present; exact spacing is confirmed in Sheets by TESTPLAN step 6.
-    log = str(val("Copy Log", "A9"))
-    print("  log entry (raw): %s" % log[:100])
-    print("  log entry (tidied): %s" % tidy(log)[:100])
-    for token in ("Copied 1", "Web", "L2", "100 GP", "Bexley", "Total:", "1 DT"):
-        check("log entry mentions %r" % token, token in log, True)
+    check("log entry, exactly", val("Copy Log", "A9"),
+          "Copied 1 wizard spell(s) into spellbook: Web (L2, 100 GP) from Bexley. "
+          "Total: 100 GP and 1 DT.")
     check("banner labels the copy cell", "PASTE THIS ONE CELL" in
           str(val("Copy Log", "A8")), True)
 
@@ -229,6 +242,9 @@ def main():
     names = [s["Name"] for s in SPELLS]
     for nm in ("Shield", "Misty Step", "Web", "Polymorph"):
         cp.cell(row=top + names.index(nm), column=9, value=True)
+    # Budgets below the 450 GP / 4 DT these four cost, to trip both flags.
+    cp[bw.CP_GP_BUDGET] = 400
+    cp[bw.CP_DT_BUDGET] = 3
     wb.save(TMP)
     sol2 = formulas.ExcelModel().loads(TMP).finish().calculate()
 
@@ -241,15 +257,75 @@ def main():
         return v
 
     print("\nOrder of Scribes -- DT rate (4 spells of level 1-4 selected)")
-    check("Cirilla (normal rate) DT = 4", val2("Copy Planner", "F2"), 4)
-    check("Cirilla GP = 50+100+100+200", val2("Copy Planner", "E2"), 450)
+    check("Cirilla (normal rate) DT = 4", val2("Copy Planner", bw.CP_DT_TOTAL), 4)
+    check("Cirilla GP = 50+100+100+200", val2("Copy Planner", bw.CP_GP_TOTAL), 450)
+
+    # Several spells, several owners: both separators, with no stray ones from
+    # the 36 unused log rows or the wizards who don't hold a given spell.
+    print("\nCopy Log -- four spells, joined exactly")
+    check("Shield from two players", val2("Copy Log", "F12"), "Rob, Sam")
+    check("log entry, exactly", val2("Copy Log", "A9"),
+          "Copied 4 wizard spell(s) into spellbook: "
+          "Shield (L1, 50 GP) from Aria, Bexley; "
+          "Misty Step (L2, 100 GP) from Aria, Bexley; "
+          "Web (L2, 100 GP) from Bexley; "
+          "Polymorph (L4, 200 GP) from Bexley. "
+          "Total: 450 GP and 4 DT.")
+
+    print("\nBudgets -- 400 GP and 3 DT against Cirilla's 450 GP / 4 DT")
+    check("GP left 400 - 450", val2("Copy Planner", bw.CP_GP_LEFT), -50)
+    check("GP over budget", val2("Copy Planner", bw.CP_GP_STATUS), "OVER BUDGET")
+    check("DT left 3 - 4", val2("Copy Planner", bw.CP_DT_LEFT), -1)
+    check("DT over budget", val2("Copy Planner", bw.CP_DT_STATUS), "OVER BUDGET")
 
     wb = load_workbook(TMP)
     wb["Copy Planner"]["B1"] = "Bexley"   # Order of Scribes
     wb.save(TMP)
     sol2 = formulas.ExcelModel().loads(TMP).finish().calculate()
-    check("Bexley (Scribes) same 4 spells DT = 1", val2("Copy Planner", "F2"), 1)
-    check("Bexley GP unchanged at 450", val2("Copy Planner", "E2"), 450)
+    check("Bexley (Scribes) same 4 spells DT = 1", val2("Copy Planner", bw.CP_DT_TOTAL), 1)
+    check("Bexley GP unchanged at 450", val2("Copy Planner", bw.CP_GP_TOTAL), 450)
+    # Same budgets: the Scribes rate brings downtime in under, gold stays over.
+    # The two flags are independent -- neither resource is assumed to bind.
+    check("Bexley DT within budget (1 of 3)", val2("Copy Planner", bw.CP_DT_STATUS),
+          "WITHIN BUDGET")
+    check("Bexley GP still over budget", val2("Copy Planner", bw.CP_GP_STATUS),
+          "OVER BUDGET")
+
+    # ---- third scenario: levelling up at the end of the Epic ----
+    # Aria registered at wizard level 3 (max spell level 2). Entering 5 in B3
+    # must open level 3 spells to her without touching what she registered.
+    def plan_as_aria(new_level):
+        wb = load_workbook(TMP)
+        cp = wb["Copy Planner"]
+        cp["B1"] = "Aria"
+        cp[bw.CP_NEW_LEVEL] = new_level
+        wb.save(TMP)
+        sol = formulas.ExcelModel().loads(TMP).finish().calculate()
+
+        def v(sheet, cell):
+            x = sol["%s%s'!%s" % (base, sheet.upper(), cell)]
+            try:
+                x = x.value[0, 0]
+            except Exception:
+                pass
+            return x
+        return v
+
+    print("\nLevelling up -- Aria (registered wizard 3) enters new level 5")
+    v = plan_as_aria(5)
+    check("max spell level now 3", v("Copy Planner", bw.CP_MAXLVL), 3)
+    check("Fireball (L3) now CAN COPY", v("Copy Planner", "E%d" % (top + 4)), "CAN COPY")
+    check("Wall of Force (L5) still TOO HIGH", v("Copy Planner", "E%d" % (top + 6)), "TOO HIGH")
+    check("Wizards tab keeps registered max level 2", v("Wizards", "D2"), 2)
+    check("note shows registered level and new reach",
+          "level 3, copying up to spell level 3" in str(v("Copy Planner", bw.CP_LEVEL_NOTE)),
+          True)
+
+    # Levels are never lost, so a lower entry must not shrink what she can copy.
+    print("\nLevelling up -- a LOWER level is ignored, not trusted")
+    v = plan_as_aria(1)
+    check("max spell level stays 2", v("Copy Planner", bw.CP_MAXLVL), 2)
+    check("Web (L2) still CAN COPY", v("Copy Planner", "E%d" % (top + 3)), "CAN COPY")
 
     print("\n%s" % ("ALL CHECKS PASSED" if not failures
                     else "FAILED: %s" % ", ".join(failures)))

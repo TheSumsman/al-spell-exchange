@@ -1,5 +1,9 @@
 """Generate build/CreateSpellExchangeForm.gs from data/wizard-spells.csv.
 
+Also rewrites data/form-options/level-*.txt -- the same spell lists as plain
+text, for building the Form by hand -- so a hand edit to the CSV needs only
+this one re-run.
+
 The Google Form is built by an Apps Script rather than by hand because the
 workbook addresses response columns BY POSITION -- one mis-ordered or inserted
 question silently breaks every formula. Generating it also means a change to the
@@ -138,8 +142,10 @@ function createSpellExchangeForm() {
   for (var i = 1; i <= 20; i++) { levels.push(String(i)); }
   form.addListItem()
       .setTitle('Wizard level')
-      .setHelpText('Your levels in the Wizard class. This sets which spell ' +
-                   'levels you are allowed to copy.')
+      .setHelpText('Your levels in the Wizard class right now. This sets which ' +
+                   'spell levels you are allowed to copy. Levelling up at the ' +
+                   'end of the Epic? Enter your current level here, and the ' +
+                   'new one on the Copy Planner when you plan.')
       .setChoiceValues(levels)
       .setRequired(true);
 
@@ -226,6 +232,59 @@ function reopenForm() {
 '''
 
 
+def spells_by_level():
+    by_level = OrderedDict((lv, []) for lv in range(1, 10))
+    with open(CSV_PATH, encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            by_level[int(r["Level"])].append(r["Name"])
+    for lv in by_level:
+        by_level[lv].sort(key=str.lower)
+    return by_level
+
+
+def render_form_options():
+    """data/form-options/level-N.txt contents, keyed by repo-relative path.
+
+    The same lists the generated Form offers, one spell per line, for anyone
+    building the Form by hand (SETUP.md). They are written here, from the CSV,
+    so that editing the CSV and re-running this script keeps them in step --
+    extract_spells.py, which used to be their only writer, cannot run from a
+    clone. It now calls write_form_options() too, so this is the one place that
+    decides their format.
+    """
+    return {"data/form-options/level-%d.txt" % lv:
+            "\n".join(names) + ("\n" if names else "")
+            for lv, names in spells_by_level().items()}
+
+
+def write_form_options():
+    for rel, text in render_form_options().items():
+        path = os.path.join(ROOT, *rel.split("/"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+
+
+def render(sheet_id=""):
+    """The generated script as text. check_artifacts.py compares the committed
+    file against render() -- with no id, which is how it must be committed."""
+    by_level = spells_by_level()
+
+    # ensure_ascii=True so curly apostrophes travel as ’ escapes and cannot
+    # be mangled by copy-paste into the Apps Script editor.
+    chunks = []
+    for lv, names in by_level.items():
+        items = ",\n    ".join(json.dumps(n, ensure_ascii=True) for n in names)
+        chunks.append("  %d: [\n    %s\n  ]" % (lv, items))
+
+    return HEAD % {
+        "count": sum(len(v) for v in by_level.values()),
+        "sheet_id": json.dumps(sheet_id),
+        "subclasses": json.dumps(SUBCLASSES, ensure_ascii=True),
+        "spells": ",\n".join(chunks) + "\n",
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--spreadsheet-id", default="",
@@ -243,27 +302,9 @@ def main():
                  "It is the part of the sheet URL between /d/ and /edit."
                  % sheet_id)
 
-    by_level = OrderedDict((lv, []) for lv in range(1, 10))
-    with open(CSV_PATH, encoding="utf-8") as fh:
-        for r in csv.DictReader(fh):
-            by_level[int(r["Level"])].append(r["Name"])
-    for lv in by_level:
-        by_level[lv].sort(key=str.lower)
-
-    # ensure_ascii=True so curly apostrophes travel as ’ escapes and cannot
-    # be mangled by copy-paste into the Apps Script editor.
-    chunks = []
-    for lv, names in by_level.items():
-        items = ",\n    ".join(json.dumps(n, ensure_ascii=True) for n in names)
-        chunks.append("  %d: [\n    %s\n  ]" % (lv, items))
-
+    by_level = spells_by_level()
     total = sum(len(v) for v in by_level.values())
-    body = HEAD % {
-        "count": total,
-        "sheet_id": json.dumps(sheet_id),
-        "subclasses": json.dumps(SUBCLASSES, ensure_ascii=True),
-        "spells": ",\n".join(chunks) + "\n",
-    }
+    body = render(sheet_id)
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8", newline="\n") as fh:
@@ -277,6 +318,10 @@ def main():
         print("  no --spreadsheet-id given: link by hand via Responses > Link to Sheets")
     for lv, names in by_level.items():
         print("    level %d: %d" % (lv, len(names)))
+
+    write_form_options()
+    print("Wrote %s (the same lists as plain text)"
+          % os.path.join(ROOT, "data", "form-options"))
 
 
 if __name__ == "__main__":

@@ -24,6 +24,7 @@ body:
         - Downtime cost (1 DT for levels 1-4, 2 DT for 5-9)
         - Order of Scribes downtime rate
         - Only copying spells of a level you can prepare
+        - Copying at your new level after levelling up
         - Which spells are AL-legal in Forgotten Realms
         - Something else
     validations:
