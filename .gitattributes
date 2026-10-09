@@ -1,0 +1,2 @@
+# Git hooks run under sh, which reads a CRLF shebang as "/bin/sh\r" and fails.
+scripts/hooks/* text eol=lf

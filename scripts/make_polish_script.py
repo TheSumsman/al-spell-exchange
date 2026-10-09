@@ -25,9 +25,17 @@ sys.stdout.reconfigure(encoding="utf-8")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "build", "PolishSpellExchangeSheet.gs")
 
-# Kept in step with build_workbook.py.
-N_WIZ = 24
-PLAN_TOP = 11
+# Taken from the builder rather than copied, so a layout change there cannot
+# leave this script colouring the wrong cells.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import build_workbook as bw  # noqa: E402
+
+N_WIZ = bw.N_WIZ
+PLAN_TOP = bw.PLAN_TOP
+BUDGET_RANGE = bw.CP_BUDGET_FLAGS
+# The "left after copying" cell of the range's first row, column-absolute so
+# the rule tests that cell across the status column beside it too.
+BUDGET_LEFT = "$%s%s" % (bw.CP_GP_LEFT[0], bw.CP_GP_LEFT[1:])
 
 SCRIPT = r'''/**
  * Wizard Spell Exchange -- Google Sheets polish (Apps Script)
@@ -35,8 +43,9 @@ SCRIPT = r'''/**
  *
  * WHAT THIS IS
  *   Applies the things an .xlsx import drops on the floor: the character
- *   dropdown on Copy Planner, real checkboxes in the Want column, and colour
- *   coding on the Status column.
+ *   dropdown on Copy Planner, real checkboxes in the Want column, colour
+ *   coding on the Status column, and red/green on the gold and downtime
+ *   budgets.
  *
  * HOW TO RUN (about a minute)
  *   1. Open the converted Google Sheet.
@@ -54,6 +63,7 @@ SCRIPT = r'''/**
 
 var N_WIZ = __N_WIZ__;
 var PLAN_TOP = __PLAN_TOP__;   // first spell row on Copy Planner
+var BUDGET_RANGE = '__BUDGET_RANGE__';  // "left after copying" + status, GP and DT rows
 
 
 // Run one step in isolation: a failure is reported and the rest still run,
@@ -82,7 +92,7 @@ function polishSheet() {
   Logger.log('Copy Planner: ' + nSpells + ' spell rows (' + PLAN_TOP + '..' + lastRow + ').');
 
   var ok = 0;
-  var total = 4;
+  var total = 5;
 
   // ---- 1. character picker in B1 ------------------------------------------
   // .xlsx validation pointing at another sheet's range does not survive import.
@@ -138,6 +148,31 @@ function polishSheet() {
     Logger.log('Filter created over the spell table.');
   })) { ok++; }
 
+  // ---- 5. flag an over-budget plan -----------------------------------------
+  // Red when gold or downtime left after copying is below zero, green when it
+  // is not. A blank budget gets neither: there is nothing to compare against.
+  // The status text beside each number says the same in words, so the colour
+  // is reinforcement, not the only signal.
+  if (step_('budget colours', function () {
+    var flags = cp.getRange(BUDGET_RANGE);
+    var rules = cp.getConditionalFormatRules().filter(function (r) {
+      return r.getRanges().every(function (rg) {
+        return rg.getA1Notation() !== flags.getA1Notation();
+      });
+    });
+    function rule(formula, bg, fg) {
+      return SpreadsheetApp.newConditionalFormatRule()
+        .whenFormulaSatisfied(formula).setBackground(bg).setFontColor(fg)
+        .setBold(true).setRanges([flags]).build();
+    }
+    rules.push(rule('=AND(ISNUMBER(__BUDGET_LEFT__),__BUDGET_LEFT__<0)',
+                    '#fde2e2', '#7f1d1d'));                   // red, over budget
+    rules.push(rule('=AND(ISNUMBER(__BUDGET_LEFT__),__BUDGET_LEFT__>=0)',
+                    '#d6f2d6', '#14532d'));                   // green, affordable
+    cp.setConditionalFormatRules(rules);
+    Logger.log(BUDGET_RANGE + ': red when over budget, green when within it.');
+  })) { ok++; }
+
   Logger.log('');
   Logger.log(ok + ' of ' + total + ' steps applied.');
   if (ok === total) {
@@ -149,10 +184,17 @@ function polishSheet() {
 '''
 
 
-def main():
-    body = (SCRIPT
+def render():
+    """The generated script as text, for check_artifacts.py to compare."""
+    return (SCRIPT
             .replace("__N_WIZ__", str(N_WIZ))
-            .replace("__PLAN_TOP__", str(PLAN_TOP)))
+            .replace("__PLAN_TOP__", str(PLAN_TOP))
+            .replace("__BUDGET_RANGE__", BUDGET_RANGE)
+            .replace("__BUDGET_LEFT__", BUDGET_LEFT))
+
+
+def main():
+    body = render()
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(body)

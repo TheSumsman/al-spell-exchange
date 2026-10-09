@@ -69,6 +69,7 @@ HTML = """<!doctype html>
   table {{ border-collapse: collapse; width: 100%; font-size: 13px; }}
   th, td {{ border: 1px solid #ded6c6; padding: 3px 5px; text-align: center; }}
   th {{ background: #f1ece1; font-weight: 600; }}
+  .scribes {{ font-size: 12px; margin: 6px 0 0; }}
   .rule {{ font-size: 12.5px; color: #444; border-left: 3px solid #b9985a;
            padding-left: 9px; margin-top: 12px; }}
   .rule em {{ color: #222; }}
@@ -97,6 +98,8 @@ HTML = """<!doctype html>
         <tr><th>Spell level</th><th>1&ndash;4</th><th>5&ndash;9</th></tr>
         <tr><td>Downtime</td><td>1 DT each</td><td>2 DT each</td></tr>
       </table>
+      <p class="scribes"><em>Order of Scribes:</em> ten level 1&ndash;4 spells,
+         or five level 5&ndash;9 spells, per&nbsp;1&nbsp;DT.</p>
     </div>
   </div>
 </div>
@@ -109,11 +112,31 @@ HTML = """<!doctype html>
   record it now.
 </p>
 <p class="rule">
-  <b>Downtime is the real limit.</b> You earn 10 DT per session, and levelling
-  up costs 10 DT. Gold is rarely what stops you. <em>Order of Scribes</em>
-  wizards copy ten level 1&ndash;4 spells for 1 DT.
+  <b>Levelling up at the end of the Epic?</b> Register at the level you are
+  now. You can still copy at your new level &mdash; enter it on the Copy
+  Planner when you plan.
 </p>
 """
+
+
+def render(url=None):
+    """The sign as HTML. With no url it is the blank placeholder, which is the
+    only form check_artifacts.py accepts in the repo."""
+    if url:
+        uri = qr_data_uri(url)
+        qr = ('<img src="%s" alt="QR code to the form">' % uri if uri
+              else '<div class="qrbox">Paste a QR code here</div>')
+        # A real anchor, so headless Chrome emits a clickable link annotation in
+        # the PDF -- styled text alone gives you nothing to click. <wbr> after
+        # each "/" lets long URLs wrap at readable boundaries instead of
+        # mid-token, which also makes them transcribable by hand.
+        safe = html_escape(url)
+        link = ('<div class="url"><a href="%s">%s</a></div>'
+                % (safe, safe.replace("/", "/<wbr>")))
+    else:
+        qr = '<div class="qrbox">Re-run with --url to embed a QR code</div>'
+        link = ""
+    return HTML.format(qr=qr, url=link)
 
 
 def main():
@@ -121,29 +144,15 @@ def main():
     ap.add_argument("--url", help="the Google Form link players should scan")
     args = ap.parse_args()
 
-    if args.url:
-        uri = qr_data_uri(args.url)
-        qr = ('<img src="%s" alt="QR code to the form">' % uri if uri
-              else '<div class="qrbox">Paste a QR code here</div>')
-        # A real anchor, so headless Chrome emits a clickable link annotation in
-        # the PDF -- styled text alone gives you nothing to click. <wbr> after
-        # each "/" lets long URLs wrap at readable boundaries instead of
-        # mid-token, which also makes them transcribable by hand.
-        safe = html_escape(args.url)
-        url = ('<div class="url"><a href="%s">%s</a></div>'
-               % (safe, safe.replace("/", "/<wbr>")))
-        if len(args.url) > 60:
-            print("  note: that URL is %d characters, so it still has to wrap."
-                  % len(args.url))
-            print("        A forms.gle short link (form > Send > link > Shorten")
-            print("        URL) prints on one line and gives a cleaner QR code.")
-    else:
-        qr = '<div class="qrbox">Re-run with --url to embed a QR code</div>'
-        url = ""
+    if args.url and len(args.url) > 60:
+        print("  note: that URL is %d characters, so it still has to wrap."
+              % len(args.url))
+        print("        A forms.gle short link (form > Send > link > Shorten")
+        print("        URL) prints on one line and gives a cleaner QR code.")
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w", encoding="utf-8") as fh:
-        fh.write(HTML.format(qr=qr, url=url))
+    with open(OUT, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(render(args.url))
     print("Wrote %s" % OUT)
     if not args.url:
         print("  no --url given: open it, then print to PDF once you have the form link")

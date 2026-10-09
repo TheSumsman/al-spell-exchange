@@ -1,0 +1,33 @@
+#!/bin/sh
+# Pre-commit checks. Enable once per clone:
+#
+#     git config core.hooksPath scripts/hooks
+#
+# This repository is public, so the checks that stop a LEAK have to run before
+# the commit exists -- CI only sees it once it has been pushed. That is
+# check_artifacts.py: lock files, PDFs, live form links, a workbook that has
+# been opened somewhere, and build/ out of step with the scripts. It reads the
+# index, so it judges exactly what this commit would contain.
+#
+# The two script mocks are here too because they take under a second. The
+# formula suite (verify_workbook.py, ~20 s) and the print check run in CI.
+
+PY=$(command -v python || command -v python3)
+if [ -z "$PY" ]; then
+    echo "pre-commit: no python found -- cannot check this commit. Install it," >&2
+    echo "or commit with --no-verify if you have checked by hand." >&2
+    exit 1
+fi
+
+"$PY" scripts/check_artifacts.py --staged --quiet || exit 1
+
+if command -v node >/dev/null 2>&1; then
+    for t in verify_form_script verify_polish_script; do
+        node "scripts/$t.js" >/dev/null 2>&1 || {
+            echo "pre-commit: $t.js failed -- run 'node scripts/$t.js' for details." >&2
+            exit 1
+        }
+    done
+else
+    echo "pre-commit: node not found, skipping the Apps Script mocks (CI runs them)." >&2
+fi

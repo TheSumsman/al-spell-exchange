@@ -4,8 +4,9 @@
  *
  * WHAT THIS IS
  *   Applies the things an .xlsx import drops on the floor: the character
- *   dropdown on Copy Planner, real checkboxes in the Want column, and colour
- *   coding on the Status column.
+ *   dropdown on Copy Planner, real checkboxes in the Want column, colour
+ *   coding on the Status column, and red/green on the gold and downtime
+ *   budgets.
  *
  * HOW TO RUN (about a minute)
  *   1. Open the converted Google Sheet.
@@ -23,6 +24,7 @@
 
 var N_WIZ = 24;
 var PLAN_TOP = 11;   // first spell row on Copy Planner
+var BUDGET_RANGE = 'D3:E4';  // "left after copying" + status, GP and DT rows
 
 
 // Run one step in isolation: a failure is reported and the rest still run,
@@ -51,7 +53,7 @@ function polishSheet() {
   Logger.log('Copy Planner: ' + nSpells + ' spell rows (' + PLAN_TOP + '..' + lastRow + ').');
 
   var ok = 0;
-  var total = 4;
+  var total = 5;
 
   // ---- 1. character picker in B1 ------------------------------------------
   // .xlsx validation pointing at another sheet's range does not survive import.
@@ -105,6 +107,31 @@ function polishSheet() {
     if (existing) { existing.remove(); }
     cp.getRange(PLAN_TOP - 1, 1, nSpells + 1, 9).createFilter();
     Logger.log('Filter created over the spell table.');
+  })) { ok++; }
+
+  // ---- 5. flag an over-budget plan -----------------------------------------
+  // Red when gold or downtime left after copying is below zero, green when it
+  // is not. A blank budget gets neither: there is nothing to compare against.
+  // The status text beside each number says the same in words, so the colour
+  // is reinforcement, not the only signal.
+  if (step_('budget colours', function () {
+    var flags = cp.getRange(BUDGET_RANGE);
+    var rules = cp.getConditionalFormatRules().filter(function (r) {
+      return r.getRanges().every(function (rg) {
+        return rg.getA1Notation() !== flags.getA1Notation();
+      });
+    });
+    function rule(formula, bg, fg) {
+      return SpreadsheetApp.newConditionalFormatRule()
+        .whenFormulaSatisfied(formula).setBackground(bg).setFontColor(fg)
+        .setBold(true).setRanges([flags]).build();
+    }
+    rules.push(rule('=AND(ISNUMBER($D3),$D3<0)',
+                    '#fde2e2', '#7f1d1d'));                   // red, over budget
+    rules.push(rule('=AND(ISNUMBER($D3),$D3>=0)',
+                    '#d6f2d6', '#14532d'));                   // green, affordable
+    cp.setConditionalFormatRules(rules);
+    Logger.log(BUDGET_RANGE + ': red when over budget, green when within it.');
   })) { ok++; }
 
   Logger.log('');

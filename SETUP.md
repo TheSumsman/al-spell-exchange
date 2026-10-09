@@ -97,8 +97,10 @@ to the right columns.
 
 ## 4. Share it
 
-- Share the **Sheet** as *Anyone with the link → **Viewer***. Players never need
-  edit access; everything is calculated.
+- Share the **Sheet** as *Anyone with the link → **Viewer***. A viewer can read
+  every tab but can't change the yellow Copy Planner cells — character, gold,
+  downtime, new level, Want ticks. Tell players to use **File → Make a copy** to
+  plan, or hand out an edit link if you trust the room. Decide before the day.
 - Share the **Form** link for registration. Check it in a logged-out browser to
   confirm it doesn't demand a Google account.
 - Build the table tent with your form link as a QR code:
@@ -119,7 +121,7 @@ to the right columns.
 
 ## 5. Announce at the start of the Epic
 
-Four things, or players will ask all day:
+Six things, or players will ask all day:
 
 1. **The whole Epic counts as one session** for spell copying — any wizard here
    may copy from any other, regardless of table. This is the one organizer
@@ -129,9 +131,13 @@ Four things, or players will ask all day:
 3. **You must register today.** The AL rule is "immediately after a session in
    which you both played" — the arithmetic can wait, the record cannot.
 4. **You can only copy spells of a level you can already prepare.**
-5. **Set your own downtime budget.** The Copy Planner starts at 10 DT, the
-   minimum everyone will have after the Epic. Anyone with downtime banked in
-   their log should change that cell to their real total.
+5. **Enter your gold and downtime.** The Copy Planner compares both against
+   what your ticked spells cost and turns red if either is over. Gold starts
+   blank; downtime starts at 10, one session's award. Use your character's real
+   totals — anything banked, less anything else you're spending it on.
+6. **Levelling up at the end of the Epic?** Register at your current level,
+   then enter your new wizard level on the Copy Planner. You can copy at the
+   new level.
 
 If a player raises the PHB's *"Copying the Book"* clause at 10 GP per level:
 that covers duplicating your own spellbook into a replacement, not learning a

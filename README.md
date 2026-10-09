@@ -53,17 +53,25 @@ converts the time into downtime: **1 DT per spell for levels 1–4, 2 DT for
 levels 5–9**. Order of Scribes wizards instead copy ten level 1–4 spells, or
 five level 5–9 spells, per 1 DT (ALPG p.2) — their gold cost is unchanged.
 
-**Gold and downtime both matter**, so the Copy Planner totals both. Downtime is
-the one people forget: you earn 10 DT per session, levelling costs 10 DT and a
-Bastion turn 7 DT, so a wealthy wizard can still run out of days before gold.
+**Copying spends both gold and downtime**, so the Copy Planner budgets both.
+Players enter their character's gold and downtime. The planner shows what the
+ticked spells cost, what's left of each, and flags **over budget** in red
+when either goes below zero. Which one a character runs short of first depends
+entirely on the character, so the tool doesn't assume either.
 
-The planner's **Downtime budget** cell starts at **10** — the minimum a character
-is sure to have after the Epic. Downtime can be banked in a character's log, and
-the tool has no way to know how much, so tell players to change that cell to
-their real total before planning.
+**Gold** starts blank, because the tool can't guess it. **Downtime** starts at
+**10**, one session's award (ALPG p.6). Both can be banked in a character's log
+and spent on other things, so tell players to enter their real totals before
+planning.
 
 **Eligibility.** You may only copy a spell of a level you can already prepare:
 `MaxSpellLevel = MIN(9, roundup(WizardLevel / 2))`.
+
+**Levelling up.** A character who levels up at the end of the Epic copies at
+their new level. Players register the level they are *now* — the Form records
+the character as they sit at the table — and enter the new level in the Copy
+Planner's **New wizard level** cell when they plan. The Wizards tab keeps the
+registered level; only that player's planner moves.
 
 **Timing.** ALPG p.3: *"You may copy spells from a character's spellbook
 immediately after a session in which you both played."* Registration therefore
@@ -93,7 +101,7 @@ rebuild everything without any extra setup.
 
 ```bash
 python scripts/build_workbook.py      # -> build/SpellExchange.xlsx
-python scripts/make_form_script.py    # -> build/CreateSpellExchangeForm.gs
+python scripts/make_form_script.py    # -> build/CreateSpellExchangeForm.gs + data/form-options/
 python scripts/make_polish_script.py  # -> build/PolishSpellExchangeSheet.gs
 python scripts/make_table_tent.py --url https://forms.gle/xxxx
 ```
@@ -104,7 +112,7 @@ Common changes:
 |---|---|
 | Roster size (default 24) | `N_WIZ` in `scripts/build_workbook.py` |
 | Gold or downtime costs | `scripts/build_workbook.py` |
-| The spell list | `data/wizard-spells.csv` |
+| The spell list | `data/wizard-spells.csv`, then re-run `build_workbook.py` and `make_form_script.py` |
 
 Rebuild the workbook **before** linking a Form to it — rebuilding means
 re-uploading, and re-uploading means re-linking.
@@ -119,17 +127,39 @@ re-uploading, and re-uploading means re-linking.
 ### Testing a change
 
 ```bash
-python scripts/verify_workbook.py     # evaluates every workbook formula (~5 min)
-node   scripts/verify_form_script.js  # runs the .gs against a mock FormApp
+pip install -r requirements.txt
+
+python scripts/check_artifacts.py       # build/ is current and safe to publish
+python scripts/verify_workbook.py       # evaluates the workbook's formulas (~20 s)
+node   scripts/verify_form_script.js    # the Form's questions, in column order
+node   scripts/verify_polish_script.js  # the polish script hits the right cells
+python scripts/verify_table_tent.py     # the sign prints on one A5 page
 ```
 
-The first evaluates the real formulas against three known wizards and checks
-every number. The second checks the Form's questions still line up with the
-columns the workbook reads. Run both after any change; they are what stops a
-broken workbook reaching an event.
+| Check | What it stops |
+|---|---|
+| `check_artifacts.py` | A stale `build/`; a lock file, PDF, live form link or used workbook reaching the public repo |
+| `verify_workbook.py` | Wrong numbers — evaluates the real formulas against three known wizards |
+| `verify_form_script.js` | The Form's questions drifting out of the column order the workbook reads |
+| `verify_polish_script.js` | Dropdown, checkboxes or colours landing on the wrong cells after a layout change |
+| `verify_table_tent.py` | The sign spilling onto a second page. Needs Chrome, Chromium or Edge |
 
-Requirements: Python 3 with `openpyxl`, plus `formulas` for `verify_workbook.py`
-and `qrcode` for the table tent's QR code. `verify_form_script.js` needs Node.
+**All five run on GitHub for every pull request, and on `main` after a merge**
+(`.github/workflows/checks.yml`).
+
+**Turn on the pre-commit hook once per clone.** It runs `check_artifacts.py`
+and the two mocks before every commit, in a couple of seconds:
+
+```bash
+git config core.hooksPath scripts/hooks
+```
+
+CI only sees a commit once it is public, so the hook is what actually stops a
+leak. It checks exactly what is staged, so stage `build/` together with the
+script change that produced it.
+
+None of these touch a real Google Sheet. That part is still
+[TESTPLAN.md](TESTPLAN.md).
 
 ### Rebuilding the spell list
 
@@ -154,7 +184,10 @@ nothing.
 **Without them** you can still change the costs, the rulings, the roster size
 and the layout, rebuild the workbook and the Form, and run the full test suite.
 You just can't regenerate the spell list — and you don't need to, because it
-ships with the repo. To edit it, edit the CSV directly.
+ships with the repo. To edit it, edit the CSV directly, then re-run
+`build_workbook.py` and `make_form_script.py`. The second also rewrites the
+plain-text lists in `data/form-options/`; the pre-commit hook refuses a commit
+where they disagree with the CSV.
 
 **With your own D&D Beyond exports**, point `SPELLEXCHANGE_BOOKS` at them and
 recreate `TheMasterSpellbook/` as described in

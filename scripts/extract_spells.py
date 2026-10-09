@@ -16,6 +16,9 @@ import sys
 import unicodedata
 from collections import Counter
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import make_form_script  # noqa: E402
+
 sys.stdout.reconfigure(encoding="utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -28,7 +31,6 @@ BOOKS = os.environ.get(
     "SPELLEXCHANGE_BOOKS",
     os.path.join(os.path.dirname(ROOT), "ALLog-sources", "Books"))
 OUT_CSV = os.path.join(ROOT, "data", "wizard-spells.csv")
-OUT_OPTS = os.path.join(ROOT, "data", "form-options")
 
 WIZARD_CLASS_ID = "2190886"
 
@@ -255,12 +257,10 @@ def main():
         w.writeheader()
         w.writerows(rows)
 
-    os.makedirs(OUT_OPTS, exist_ok=True)
-    for lv in range(1, 10):
-        names = [r["Name"] for r in rows if r["Level"] == lv]
-        with open(os.path.join(OUT_OPTS, "level-%d.txt" % lv), "w",
-                  encoding="utf-8") as fh:
-            fh.write("\n".join(names) + ("\n" if names else ""))
+    # The plain-text option lists are rebuilt from the CSV just written, by the
+    # Form generator's own code -- one place decides their format, and a hand
+    # edit to the CSV regenerates them without this script.
+    make_form_script.write_form_options()
 
     print("\nWrote %d leveled wizard spells -> %s" % (len(rows), OUT_CSV))
     print("  unsourced (labelled 'Other AL-legal (FR)'): %d" % unsourced)

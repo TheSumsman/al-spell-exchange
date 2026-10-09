@@ -1,0 +1,53 @@
+name: Checks
+
+# Everything that can be checked without a Google account. The real-Sheets
+# checks are still manual -- see TESTPLAN.md.
+# Pull requests, plus main after a merge. Not every branch push: a push to a
+# PR branch would otherwise run everything twice.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - run: pip install -r requirements.txt
+
+      # Each check runs even if an earlier one failed, so one push reports
+      # everything that is wrong rather than the first thing.
+      - name: Committed files are clean and match a fresh build
+        run: python scripts/check_artifacts.py
+
+      - name: Workbook formulas compute the right answers
+        if: ${{ !cancelled() }}
+        run: python scripts/verify_workbook.py
+
+      - name: Form script asks its questions in column order
+        if: ${{ !cancelled() }}
+        run: node scripts/verify_form_script.js
+
+      - name: Polish script touches the right cells
+        if: ${{ !cancelled() }}
+        run: node scripts/verify_polish_script.js
+
+      - name: Table tent prints on one A5 page
+        if: ${{ !cancelled() }}
+        env:
+          REQUIRE_BROWSER: "1"
+        run: python scripts/verify_table_tent.py

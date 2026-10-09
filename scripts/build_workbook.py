@@ -1,12 +1,17 @@
 """Build build/SpellExchange.xlsx from data/wizard-spells.csv.
 
-The workbook is authored as .xlsx but LIVES IN GOOGLE SHEETS, so every formula
-is restricted to the intersection of both dialects: COUNTIF(S), SUMIF, TEXTJOIN,
-INDEX, IF, SEARCH, CEILING -- filled down explicitly.
+The workbook is authored as .xlsx but LIVES IN GOOGLE SHEETS, and organisers
+also download it back out to Excel. So every formula is restricted to what
+Sheets and every Excel since 2007 share: COUNTIF(S), SUMIF, INDEX, MATCH, IF,
+IFERROR, SEARCH, SMALL, MID, CEILING, & -- filled down explicitly.
 
 Deliberately avoided:
   * QUERY / ARRAYFORMULA / FILTER      -- Google-only
   * spilling dynamic arrays / XLOOKUP  -- Excel-365-only, converts badly
+  * TEXTJOIN / CONCAT                  -- Excel 2019+ only, AND Google's .xlsx
+                                          export drops the _xlfn. prefix Excel
+                                          needs, so even 365 reads #NAME?.
+                                          See joined().
   * checkbox data validation           -- does not survive xlsx -> Sheets
 """
 import csv
@@ -55,6 +60,56 @@ def resp(col, row):
     full-column range, and the row index is a plain number, not a reference.
     """
     return "INDEX('%s'!$%s$1:$%s$%d,%d)" % (RESP_TAB, col, col, RESP_LAST, row)
+
+# Copy Planner cells that formulas elsewhere, the polish script and the
+# verifier all address. Named once here so the layout can move without anyone
+# hunting for "$B$4" inside string literals.
+CP_CHAR = "B1"           # character picker
+CP_GP_BUDGET = "B3"      # player's gold
+CP_DT_BUDGET = "B4"      # player's downtime
+CP_NEW_LEVEL = "B5"      # optional wizard level after levelling up
+CP_GP_TOTAL = "C3"       # cost of the ticked spells
+CP_DT_TOTAL = "C4"
+CP_GP_LEFT = "D3"        # budget minus cost; blank until a budget is entered
+CP_DT_LEFT = "D4"
+CP_GP_STATUS = "E3"      # OVER BUDGET / WITHIN BUDGET
+CP_DT_STATUS = "E4"
+CP_BUDGET_FLAGS = "D3:E4"  # what PolishSpellExchangeSheet.gs colours
+CP_LEVEL_NOTE = "C5"
+CP_IDX = "L1"            # hidden helpers: labels in column K, values in L
+CP_MAXLVL = "L2"
+CP_SCRIBES = "L3"
+CP_LVL_USED = "L4"
+CP_COUNT = "L5"          # number of spells ticked
+
+
+def ab(cell):
+    """'B4' -> '$B$4'."""
+    col = cell.rstrip("0123456789")
+    return "$%s$%s" % (col, cell[len(col):])
+
+
+# Excel's limit on the text in one cell. MID needs a length; this one never
+# truncates.
+MAX_TEXT = 32767
+
+
+def joined(cells, sep):
+    """A delimited list without TEXTJOIN, which Excel 2016 lacks entirely.
+
+    Each cell in `cells` must hold either "" or `sep` + its value -- e.g.
+    ", Bexley". Concatenating them all gives ", Aria, Bexley"; MID then drops
+    the leading separator. Empty cells contribute nothing, so there is no
+    stray-delimiter case to handle. Formula length grows ~6 characters per
+    cell, nowhere near Excel's 8,192 limit at any roster this workbook can read.
+    """
+    return "MID(%s,%d,%d)" % ("&".join(cells), len(sep) + 1, MAX_TEXT)
+
+
+def planner(cell):
+    """An absolute reference to a Copy Planner cell, from another tab."""
+    return "'Copy Planner'!%s" % ab(cell)
+
 
 HDR_FILL = PatternFill("solid", fgColor="2F3E46")
 HDR_FONT = Font(color="FFFFFF", bold=True)
@@ -105,9 +160,14 @@ def build(spells=None, n_wiz=None, out=None):
         ("", None),
         ("HOW TO USE", TITLE_FONT),
         ("1. Fill in the Google Form at the event (one submission per wizard character).", None),
-        ("2. Open the 'Copy Planner' tab and pick your character in the yellow cell.", None),
+        ("2. Open the 'Copy Planner' tab and fill in the yellow cells at the top: your "
+         "character, their", None),
+        ("   gold and downtime, and - if levelling up at the end of this Epic - their new "
+         "wizard level.", None),
         ("3. Filter the Status column to 'CAN COPY' to see what is available to you.", None),
-        ("4. Tick the 'Want' checkbox. The totals at the top add up GP and Downtime.", None),
+        ("4. Tick the 'Want' checkbox. The panel at the top shows what the ticked spells "
+         "cost, what you", None),
+        ("   have left, and turns red if either gold or downtime is over budget.", None),
         ("5. Open 'Copy Log' for the list of what you copied, what it cost, and from", None),
         ("   whom - plus a line of text ready to paste into your character log.", None),
         ("", None),
@@ -134,14 +194,20 @@ def build(spells=None, n_wiz=None, out=None):
         ("This workbook applies that rate automatically when the subclass is recorded.", NOTE_FONT),
         ("", None),
         ("GOLD AND DOWNTIME", TITLE_FONT),
-        ("Both matter, so this workbook totals both. Downtime is the one people forget: "
-         "you earn 10 DT", None),
-        ("per session (ALPG p.6), levelling up costs 10 DT and a Bastion turn 7 DT.", None),
+        ("Copying spends both, so Copy Planner compares both against the totals you "
+         "enter from your", None),
+        ("character's log. Which one runs out first depends on the character.", None),
         ("", None),
-        ("The Downtime budget on Copy Planner starts at 10 - the minimum you are sure to "
-         "have after", None),
-        ("this Epic. If your character has downtime banked in their log, change that cell "
-         "to your real total.", NOTE_FONT),
+        ("Gold starts blank - the workbook cannot guess it. Downtime starts at 10, one "
+         "session's award", NOTE_FONT),
+        ("(ALPG p.6). Change both to your real totals, after anything else you are "
+         "spending them on.", NOTE_FONT),
+        ("", None),
+        ("LEVELLING UP", TITLE_FONT),
+        ("A character who levels up at the end of this Epic can copy spells of the level "
+         "they can prepare", None),
+        ("once levelled. Enter the new wizard level on Copy Planner; the form keeps the "
+         "level you registered at.", None),
         ("", None),
         ("RULING FOR THIS EVENT", TITLE_FONT),
         ("* The whole Epic counts as one session: any wizard present may copy from any "
@@ -271,12 +337,13 @@ def build(spells=None, n_wiz=None, out=None):
                     value="=IF(%s=\"\",\"\",IF(%s,1,\"\"))"
                           % ("Wizards!$A$%d" % (k + 1), test))
             nm = get_column_letter(name_first + k - 1)
+            # ", Name" or "" -- the shape joined() expects.
             mx.cell(row=i, column=help_first + k - 1,
-                    value="=IF(%s%d=1,%s$1,\"\")" % (nm, i, nm))
+                    value="=IF(%s%d=1,\", \"&%s$1,\"\")" % (nm, i, nm))
         mx.cell(row=i, column=own_col,
-                value="=TEXTJOIN(\", \",TRUE,$%s%d:$%s%d)"
-                      % (get_column_letter(help_first), i,
-                         get_column_letter(help_last), i))
+                value="=" + joined(["$%s%d" % (get_column_letter(c), i)
+                                    for c in range(help_first, help_last + 1)],
+                                   ", "))
         mx.cell(row=i, column=cnt_col,
                 value="=COUNT($%s%d:$%s%d)"
                       % (get_column_letter(name_first), i,
@@ -285,7 +352,9 @@ def build(spells=None, n_wiz=None, out=None):
 
     # -------------------------------------------------------- Copy Planner
     cp = wb.create_sheet("Copy Planner")
-    cp.column_dimensions["A"].width = 7
+    # A is wide enough for the input labels: they sit beside filled cells, so
+    # they cannot overflow into B the way a label beside an empty cell would.
+    cp.column_dimensions["A"].width = 19
     cp.column_dimensions["B"].width = 34
     cp.column_dimensions["C"].width = 15
     cp.column_dimensions["D"].width = 22
@@ -295,61 +364,134 @@ def build(spells=None, n_wiz=None, out=None):
     cp.column_dimensions["H"].width = 6
     cp.column_dimensions["I"].width = 8
 
-    cp["A1"] = "Your character:"
-    cp["A1"].font = Font(bold=True)
-    pick = cp["B1"]
-    pick.fill = PatternFill("solid", fgColor="FFF3B0")
-    pick.border = BORDER
-    cp["C1"] = "<- pick from the list, then filter Status to CAN COPY"
-    cp["C1"].font = NOTE_FONT
+    yellow = PatternFill("solid", fgColor="FFF3B0")
 
-    cp["A2"] = "Downtime budget (DT):"
-    cp["A2"].font = Font(bold=True)
-    bud = cp["B2"]
-    bud.value = 10
-    bud.fill = PatternFill("solid", fgColor="FFF3B0")
-    bud.border = BORDER
-    cp["C2"] = ("10 DT is the minimum you are sure to have after this Epic - "
-                "change it to your character's real total if more is banked")
-    cp["C2"].font = NOTE_FONT
+    def bold(cell, text):
+        cp[cell] = text
+        cp[cell].font = Font(bold=True)
 
+    def note(cell, text):
+        cp[cell] = text
+        cp[cell].font = NOTE_FONT
+
+    def entry(cell, value=None):
+        c = cp[cell]
+        c.value = value
+        c.fill = yellow
+        c.border = BORDER
+        return c
+
+    bold("A1", "Your character:")
+    pick = entry(CP_CHAR)
+    note("C1", "<- pick from the list, then filter Status to CAN COPY")
+
+    # Budget panel: one row per resource, read left to right -- what you have,
+    # what the ticked spells cost, what is left, and whether that is over.
+    # Neither resource is assumed to be the one that runs out: which one a
+    # character is short of is entirely down to the character.
     last = PLAN_TOP + n - 1
-    # hidden lookups
-    cp["A4"] = "wizard index"
-    cp["B4"] = "=IFERROR(MATCH($B$1,Wizards!$A$2:$A$%d,0),\"\")" % (N_WIZ + 1)
-    cp["A5"] = "max spell level"
-    cp["B5"] = "=IF($B$4=\"\",\"\",INDEX(Wizards!$D$2:$D$%d,$B$4))" % (N_WIZ + 1)
-    cp["A6"] = "order of scribes"
-    cp["B6"] = "=IF($B$4=\"\",\"\",INDEX(Wizards!$G$2:$G$%d,$B$4))" % (N_WIZ + 1)
-    for r in (4, 5, 6):
-        cp.row_dimensions[r].hidden = True
+    want, lvl_col, gp_col = ("$I$%d:$I$%d" % (PLAN_TOP, last),
+                             "$A$%d:$A$%d" % (PLAN_TOP, last),
+                             "$G$%d:$G$%d" % (PLAN_TOP, last))
+    for cell, text in (("B2", "Your total"), ("D2", "Left after copying")):
+        cp[cell] = text
+    cp["C2"] = '="Cost of "&%s&" ticked"' % ab(CP_COUNT)
+    for cell in ("B2", "C2", "D2"):
+        cp[cell].font = Font(bold=True, size=9)
+        cp[cell].alignment = Alignment(horizontal="center")
+        cp[cell].border = Border(bottom=THIN)
 
-    # Four summary boxes across D1:G2.
     # Order of Scribes (ALPG p.2) changes only the DT rate: ten level 1-4 spells
     # or five level 5-9 spells per 1 DT. GP is unaffected.
     # TRUE, not "x": the Want column is a Google Sheets checkbox, which stores
     # a boolean. COUNTIF/SUMIF match TRUE identically in Excel and Sheets.
-    lo = 'COUNTIFS($I${t}:$I${b},TRUE,$A${t}:$A${b},"<=4")'
-    hi = 'COUNTIFS($I${t}:$I${b},TRUE,$A${t}:$A${b},">=5")'
-    dt = ('=IF($B$6="Yes",CEILING({lo}/10,1)+CEILING({hi}/5,1),{lo}+2*{hi})'
-          .format(lo=lo, hi=hi))
-    boxes = [
-        ("D", "Spells selected", '=COUNTIF($I${t}:$I${b},TRUE)'),
-        ("E", "Total GP", '=SUMIF($I${t}:$I${b},TRUE,$G${t}:$G${b})'),
-        ("F", "Total DT", dt),
-        ("G", "DT remaining", "=$B$2-$F$2"),
+    lo = 'COUNTIFS(%s,TRUE,%s,"<=4")' % (want, lvl_col)
+    hi = 'COUNTIFS(%s,TRUE,%s,">=5")' % (want, lvl_col)
+    dt_total = ('=IF({sc}="Yes",CEILING({lo}/10,1)+CEILING({hi}/5,1),{lo}+2*{hi})'
+                .format(sc=ab(CP_SCRIBES), lo=lo, hi=hi))
+    gp_total = "=SUMIF(%s,TRUE,%s)" % (want, gp_col)
+
+    # Gold starts blank: the tool cannot guess it, and a made-up default would
+    # read as a real comparison. Downtime starts at one session's award.
+    for row_label, budget, start, total, left, status in (
+            ("Gold (GP):", CP_GP_BUDGET, None, gp_total, CP_GP_LEFT, CP_GP_STATUS),
+            ("Downtime (DT):", CP_DT_BUDGET, 10, dt_total, CP_DT_LEFT, CP_DT_STATUS)):
+        row = budget[1:]
+        bold("A" + row, row_label)
+        entry(budget, start)
+        cost = cp["C" + row]
+        cost.value = total
+        cp[left] = '=IF({b}="","",{b}-{c})'.format(b=ab(budget), c=ab("C" + row))
+        cp[status] = ('=IF({b}="","<- enter your total to compare",'
+                      'IF({l}<0,"OVER BUDGET","WITHIN BUDGET"))'
+                      .format(b=ab(budget), l=ab(left)))
+        for c in (cost, cp[left]):
+            c.font = Font(bold=True, size=13)
+            c.alignment = Alignment(horizontal="center")
+            c.fill = BOX_FILL
+            c.border = BORDER
+        cp[status].font = Font(bold=True)
+        # Over-budget colouring is a Sheets conditional format, applied by
+        # PolishSpellExchangeSheet.gs -- it does not survive the .xlsx import.
+        # The status text carries the same message without it.
+    note("F4", "starts at 10, one session's award - change it to your real total")
+
+    dv_gp = DataValidation(type="decimal", operator="greaterThanOrEqual",
+                           formula1="0", allow_blank=True)
+    dv_gp.error, dv_gp.errorTitle = "Your character's gold, 0 or more.", "Gold"
+    dv_dt = DataValidation(type="whole", operator="greaterThanOrEqual",
+                           formula1="0", allow_blank=True)
+    dv_dt.error, dv_dt.errorTitle = "Your character's downtime, 0 or more.", "Downtime"
+    for dv, cell in ((dv_gp, CP_GP_BUDGET), (dv_dt, CP_DT_BUDGET)):
+        cp.add_data_validation(dv)
+        dv.add(cp[cell])
+
+    # Levelling up at the end of the Epic raises the spell level a character can
+    # copy. It lives here, not on the Form: the Form records what the character
+    # IS at registration, and whether to level up is often decided afterwards.
+    # Like the budgets, it is the player's own planning input.
+    reg_level = "INDEX(Wizards!$C$2:$C$%d,%s)" % (N_WIZ + 1, ab(CP_IDX))
+    bold("A" + CP_NEW_LEVEL[1:], "New wizard level:")
+    lvl_in = entry(CP_NEW_LEVEL)
+    cp[CP_LEVEL_NOTE] = (
+        '=IF({ix}="","<- levelling up at the end of this Epic? Enter your new wizard level",'
+        '"<- levelling up at the end of this Epic? Enter your new wizard level. '
+        'Registered at level "&{reg}&", copying up to spell level "&{mx})'
+    ).format(ix=ab(CP_IDX), reg=reg_level, mx=ab(CP_MAXLVL))
+    cp[CP_LEVEL_NOTE].font = NOTE_FONT
+    dv_lvl = DataValidation(type="whole", operator="between",
+                            formula1="1", formula2="20", allow_blank=True)
+    dv_lvl.error = "A wizard level from 1 to 20."
+    dv_lvl.errorTitle = "New wizard level"
+    cp.add_data_validation(dv_lvl)
+    dv_lvl.add(lvl_in)
+
+    note("A7", "Switching character? Untick the Want column first - the costs "
+               "add up every tick, whatever its Status.")
+
+    # Hidden lookups, in hidden columns K:L rather than hidden rows, so the
+    # visible panel above can grow without colliding with them.
+    helpers = [
+        (CP_IDX, "wizard index",
+         '=IFERROR(MATCH({ch},Wizards!$A$2:$A${w},0),"")'),
+        (CP_MAXLVL, "max spell level",
+         '=IF({ix}="","",MIN(9,CEILING({lv}/2,1)))'),
+        (CP_SCRIBES, "order of scribes",
+         '=IF({ix}="","",INDEX(Wizards!$G$2:$G${w},{ix}))'),
+        # The registered level, unless the new-level cell holds a higher one.
+        # Levels are never lost, so a lower or non-numeric entry is ignored
+        # rather than trusted.
+        (CP_LVL_USED, "wizard level used",
+         '=IF({ix}="","",IF(AND(ISNUMBER({nl}),{nl}>{reg}),MIN(20,{nl}),{reg}))'),
+        (CP_COUNT, "spells ticked", "=COUNTIF(%s,TRUE)" % want),
     ]
-    for col, label, formula in boxes:
-        h = cp["%s1" % col]
-        h.value = label
-        h.font = Font(bold=True, size=9)
-        h.alignment = Alignment(horizontal="center", wrap_text=True)
-        v = cp["%s2" % col]
-        v.value = formula.replace("${t}", str(PLAN_TOP)).replace("${b}", str(last))
-        v.font = Font(bold=True, size=13)
-        v.alignment = Alignment(horizontal="center")
-        v.fill = BOX_FILL
-        v.border = BORDER
+    for cell, text, formula in helpers:
+        cp.cell(row=cp[cell].row, column=cp[cell].column - 1, value=text)
+        cp[cell] = formula.format(ch=ab(CP_CHAR), w=N_WIZ + 1, ix=ab(CP_IDX),
+                                  lv=ab(CP_LVL_USED), nl=ab(CP_NEW_LEVEL),
+                                  reg=reg_level)
+    for col in ("K", "L"):
+        cp.column_dimensions[col].hidden = True
 
     header(cp, PLAN_TOP - 1,
            ["Level", "Spell", "School", "Source", "Status", "Available from",
@@ -360,20 +502,20 @@ def build(spells=None, n_wiz=None, out=None):
         cp.cell(row=i, column=2, value=r["Name"])
         cp.cell(row=i, column=3, value=r["School"])
         cp.cell(row=i, column=4, value=r["Source"])
-        mine = "INDEX(Matrix!$%s%d:$%s%d,1,$B$4)" % (
+        mine = "INDEX(Matrix!$%s%d:$%s%d,1,%s)" % (
             get_column_letter(name_first), mrow,
-            get_column_letter(name_last), mrow)
+            get_column_letter(name_last), mrow, ab(CP_IDX))
         # OWNED is tested first, so by the time we reach the "# Owners" test the
         # selected wizard is not among the owners -- a count of 0 really does
         # mean nobody else has it.
         cp.cell(row=i, column=5, value=(
-            '=IF($B$4="","",'
+            '=IF({ix}="","",'
             'IF({mine}=1,"OWNED",'
             'IF(Spells!$E${srow}<>"","RESTRICTED",'
-            'IF($A{row}>$B$5,"TOO HIGH",'
+            'IF($A{row}>{mx},"TOO HIGH",'
             'IF(Matrix!${cc}{mrow}=0,"NOBODY HAS IT","CAN COPY")))))'
-        ).format(mine=mine, srow=mrow, row=i, mrow=mrow,
-                 cc=get_column_letter(cnt_col)))
+        ).format(ix=ab(CP_IDX), mx=ab(CP_MAXLVL), mine=mine, srow=mrow, row=i,
+                 mrow=mrow, cc=get_column_letter(cnt_col)))
         cp.cell(row=i, column=6, value="=Matrix!$%s%d" % (get_column_letter(own_col), mrow))
         cp.cell(row=i, column=7, value="=$A%d*50" % i)
         cp.cell(row=i, column=8, value="=IF($A%d<=4,1,2)" % i)
@@ -427,10 +569,10 @@ def build(spells=None, n_wiz=None, out=None):
                 "Gold and downtime are expended, not paid to the lender.")
     ts["A2"].font = NOTE_FONT
 
-    for col, label, ref in (("A", "Character", "'Copy Planner'!$B$1"),
-                            ("C", "Spells", "'Copy Planner'!$D$2"),
-                            ("D", "Total GP", "'Copy Planner'!$E$2"),
-                            ("E", "Total DT", "'Copy Planner'!$F$2")):
+    for col, label, ref in (("A", "Character", planner(CP_CHAR)),
+                            ("C", "Spells", planner(CP_COUNT)),
+                            ("D", "Total GP", planner(CP_GP_TOTAL)),
+                            ("E", "Total DT", planner(CP_DT_TOTAL))):
         h = ts["%s4" % col]
         h.value = label
         h.font = Font(bold=True, size=9)
@@ -449,8 +591,8 @@ def build(spells=None, n_wiz=None, out=None):
     frag_first = 8                                  # hidden per-spell log fragment
     ply_first = frag_first + 1                      # hidden per-wizard player names
     ply_last = ply_first + N_WIZ - 1
-    log_rng = "%s%d:%s%d" % (get_column_letter(frag_first), LOG_TOP,
-                             get_column_letter(frag_first), LOG_TOP + LOG_ROWS - 1)
+    log_cells = ["$%s$%d" % (get_column_letter(frag_first), LOG_TOP + k)
+                 for k in range(LOG_ROWS)]
 
     # The single cell players actually copy. It previously sat unlabelled between
     # two notes and the table header, so it read as more commentary and nobody
@@ -464,12 +606,14 @@ def build(spells=None, n_wiz=None, out=None):
         ts.cell(row=LOG_LABEL, column=c).fill = HDR_FILL
 
     txt = ts.cell(row=LOG_TEXT, column=1, value=(
-        '=IF(\'Copy Planner\'!$B$4="",'
+        '=IF({ix}="",'
         '"Pick your character on Copy Planner, then tick the spells you want.",'
-        'IF(\'Copy Planner\'!$D$2=0,"Nothing ticked yet.",'
-        '"Copied "&\'Copy Planner\'!$D$2&" wizard spell(s) into spellbook: "'
-        '&TEXTJOIN("; ",TRUE,{rng})&". Total: "&\'Copy Planner\'!$E$2'
-        '&" GP and "&\'Copy Planner\'!$F$2&" DT."))').format(rng=log_rng))
+        'IF({cnt}=0,"Nothing ticked yet.",'
+        '"Copied "&{cnt}&" wizard spell(s) into spellbook: "'
+        '&{frags}&". Total: "&{gp}'
+        '&" GP and "&{dt}&" DT."))').format(
+            ix=planner(CP_IDX), cnt=planner(CP_COUNT), gp=planner(CP_GP_TOTAL),
+            dt=planner(CP_DT_TOTAL), frags=joined(log_cells, "; ")))
     txt.fill = PatternFill("solid", fgColor="FFF3B0")
     txt.border = BORDER
     txt.alignment = Alignment(wrap_text=True, vertical="top")
@@ -506,24 +650,26 @@ def build(spells=None, n_wiz=None, out=None):
                 value="=IF($A%d=\"\",\"\",INDEX(Matrix!$%s$2:$%s$%d,$A%d))"
                       % (r, own_letter, own_letter, n + 1, r))
         ts.cell(row=r, column=6,
-                value="=IF($A%d=\"\",\"\",TEXTJOIN(\", \",TRUE,$%s%d:$%s%d))"
-                      % (r, get_column_letter(ply_first), r,
-                         get_column_letter(ply_last), r))
+                value="=IF($A%d=\"\",\"\",%s)"
+                      % (r, joined(["$%s%d" % (get_column_letter(c), r)
+                                    for c in range(ply_first, ply_last + 1)],
+                                   ", ")))
         # Guard on $A (the index), never on a numeric column: an unused row
         # returns "" not 0, and testing =0 built stray " (from )" fragments.
         ts.cell(row=r, column=frag_first,
-                value=("=IF($A%d=\"\",\"\",$B%d&\" (L\"&$C%d&\", \"&$D%d"
+                value=("=IF($A%d=\"\",\"\",\"; \"&$B%d&\" (L\"&$C%d&\", \"&$D%d"
                        "&\" GP) from \"&$E%d)") % (r, r, r, r, r))
         for w in range(1, N_WIZ + 1):
             mcol = get_column_letter(name_first + w - 1)
             ts.cell(row=r, column=ply_first + w - 1,
                     value=("=IF($A%d=\"\",\"\",IF(INDEX(Matrix!$%s$2:$%s$%d,$A%d)=1,"
-                           "Wizards!$B$%d,\"\"))")
+                           "\", \"&Wizards!$B$%d,\"\"))")
                           % (r, mcol, mcol, n + 1, r, w + 1))
 
     ts.cell(row=LOG_TOP + LOG_ROWS + 1, column=1,
-            value=("=IF('Copy Planner'!$D$2>%d,\"More than %d spells ticked - "
-                   "the list above is truncated.\",\"\")" % (LOG_ROWS, LOG_ROWS))
+            value=("=IF(%s>%d,\"More than %d spells ticked - "
+                   "the list above is truncated.\",\"\")"
+                   % (planner(CP_COUNT), LOG_ROWS, LOG_ROWS))
             ).font = NOTE_FONT
     ts.cell(row=LOG_TOP + LOG_ROWS + 3, column=1,
             value=("AL rule: you may copy from a character's spellbook immediately "

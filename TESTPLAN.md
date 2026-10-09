@@ -3,8 +3,9 @@
 Twenty minutes, done once, before you share anything. Every expected number
 below is exact — if you see a different one, something is wrong.
 
-The offline test suite already evaluated all the workbook formulas and the form's
-question order, so this is **not** re-checking the arithmetic. It checks the
+The offline checks (README, *Testing a change*) already evaluate the workbook
+formulas, the Form's question order and where the polish script puts things, so
+this is **not** re-checking the arithmetic. It checks the
 things only a real Google Sheet can tell us: that the xlsx→Sheets conversion kept
 the formulas, dropdowns and filters intact, and that the response tab is wired to
 the right columns.
@@ -131,12 +132,9 @@ Use Ctrl+F to jump to each spell.
 - [ ] **Wish** — *# Owners* = **1**, *Owners* = `Cirilla`
 - [ ] **Feather Fall** — *# Owners* = **0**, *Owners* blank (nobody took it)
 
-> **This is the one check the offline suite could not settle.** Look hard at the
-> *Owners* text. It must read `Aria, Bexley` — **not** `, Aria, Bexley` and not
-> `Aria, , Bexley`. Excel and Sheets should drop the empty helper cells inside
-> `TEXTJOIN`, but our offline evaluator disagreed, so your eyes are the tiebreak.
-> Stray commas are cosmetic only — the counts and costs stay correct — but tell
-> me and I'll switch the formula.
+> The *Owners* text must read exactly `Aria, Bexley` — not `, Aria, Bexley`, not
+> `Aria, , Bexley`. The offline suite checks this exactly now, so a stray comma
+> here means Sheets evaluates the formula differently. Tell me if you see one.
 
 ---
 
@@ -148,8 +146,11 @@ Use Ctrl+F to jump to each spell.
 - [ ] The **Want** column shows real **checkboxes**, not empty cells.
 - [ ] The **Status** column is colour-coded — green `CAN COPY`, grey `OWNED`,
       red `TOO HIGH`, sand `NOBODY HAS IT`.
+- [ ] The budget panel at the top: **B3** (Gold) is empty, **B4** (Downtime)
+      reads **10**, and **E4** reads `WITHIN BUDGET` on a **green** background.
+      E3 reads `<- enter your total to compare`, with no colour.
 
-> All three come from `build/PolishSpellExchangeSheet.gs`. An .xlsx import drops
+> All of these come from `build/PolishSpellExchangeSheet.gs`. An .xlsx import drops
 > cross-sheet data validation and conditional formatting, and .xlsx has no
 > checkbox cell type at all, so they can only be applied once the workbook is in
 > Sheets. If any are missing, you haven't run that script yet — see SETUP.md
@@ -183,32 +184,75 @@ Set B1 to `Aria`, then check the **Status** column:
 
 > **Clear the Want column whenever you switch character.** The totals add up
 > every ticked row, whatever its status — they don't skip rows marked OWNED or
-> TOO HIGH. Leftover ticks from another wizard give nonsense totals.
+> TOO HIGH. Leftover ticks from another wizard give nonsense totals. Row 7 of
+> the planner says so too.
+
+The panel reads across: **Your total** (B), **Cost of N ticked** (C), **Left
+after copying** (D), then the verdict (E). Gold is row 3, downtime row 4.
 
 Still as Aria, tick **Web** only:
 
-- [ ] Spells selected **1**, Total GP **100**, Total DT **1**, DT remaining **9**
+- [ ] C2 reads `Cost of 1 ticked`. Gold cost **100**, downtime cost **1**
+- [ ] Gold left is **blank** — no gold entered, so nothing to compare
+- [ ] Downtime left **9**, `WITHIN BUDGET`, green
 
 Clear that tick. Set B1 to `Cirilla` and tick **four** spells she can actually
 copy — Shield (1), Misty Step (2), Web (2), Polymorph (4):
 
-- [ ] Total GP **450** (50 + 100 + 100 + 200)
-- [ ] Total DT **4** — four spells of level 1–4, one downtime day each
-- [ ] DT remaining **6**
+- [ ] Gold cost **450** (50 + 100 + 100 + 200)
+- [ ] Downtime cost **4** — four spells of level 1–4, one downtime day each
+- [ ] Downtime left **6**
 
-### 4d. Order of Scribes — the headline feature
+### 4d. Over budget
+
+Keep Cirilla's four ticks. Type **400** into **B3** (Gold) and **3** into
+**B4** (Downtime):
+
+- [ ] Gold left **-50**, `OVER BUDGET`, **red**
+- [ ] Downtime left **-1**, `OVER BUDGET`, **red**
+- [ ] Type **-5** into B3. It's **rejected** — budgets can't be negative. Put
+      400 back.
+
+> No colour, but the words are right? The polish script's budget step didn't
+> run — check its Execution log for `budget colours`.
+
+### 4e. Order of Scribes — the headline feature
 
 Clear those ticks. Set B1 to `Bexley` and tick the three spells **he** can copy —
 Magic Missile (1), Alarm (1), Counterspell (3):
 
-- [ ] Total GP **250** (50 + 50 + 150) — gold is per spell level as usual
-- [ ] Total DT **1**, *not 3* — Order of Scribes copies **ten** level 1–4 spells
-      per downtime day (ALPG p.2), so three of them still round up to just one
-- [ ] DT remaining **9**
+- [ ] Gold cost **250** (50 + 50 + 150) — gold is per spell level as usual
+- [ ] Downtime cost **1**, *not 3* — Order of Scribes copies **ten** level 1–4
+      spells per downtime day (ALPG p.2), so three of them still round up to
+      just one
+- [ ] Against the same 400 GP / 3 DT: gold left **150**, downtime left **2**,
+      both `WITHIN BUDGET`, both **green**
 
 That's the contrast: Cirilla paid **4 DT for four** level 1–4 spells, Bexley pays
 **1 DT for three**. If Bexley shows 3 DT, the Scribes branch isn't firing — check
 his subclass reads exactly `Order of Scribes` on the Wizards tab.
+
+Now **clear B3** and set **B4 back to 10**.
+
+### 4f. Levelling up at the end of the Epic
+
+Clear those ticks. Set B1 to `Aria` and type **5** into **B5** (*New wizard
+level*) — she registered at 3 and is levelling up twice for the test's sake:
+
+- [ ] The note beside B5 reads *Registered at level 3, copying up to spell
+      level 3*.
+- [ ] The **Status = CAN COPY** filter now shows **exactly four spells**:
+      `Alarm`, `Web`, `Fireball`, `Counterspell`. Level 3 opened up; nothing at
+      level 4 or above did.
+- [ ] The **Wizards** tab still shows Aria at wizard level **3**, max spell
+      level **2**. The new level is her planning input, not her registration.
+
+Now type **2** into B5 — lower than she registered:
+
+- [ ] The filter is back to `Alarm` and `Web` only. A lower level is ignored,
+      not trusted.
+
+**Clear B5** before moving on; step 5 relies on Aria being back at level 3.
 
 ---
 
@@ -273,12 +317,20 @@ entries separated by `; `, with GP and DT totals moving accordingly.
 > can't set B1 to their own character. Tell players to use **File → Make a copy**,
 > or hand out an edit link if you trust the room. Worth deciding before the day.
 
+- [ ] If anyone will plan in **Excel** instead: **File → Download → Microsoft
+      Excel (.xlsx)** and open it. Matrix's *Owners* column and Copy Log's
+      log entry show names, not `#NAME?`. The workbook avoids every function
+      newer than Excel 2007, so this should hold in any Excel version. While
+      you're there, tick a Want box and check the budget panel's costs move.
+
 ---
 
 ## 8. Clean up
 
 - [ ] Delete the three test rows from the response tab.
-- [ ] Untick every checkbox in the Copy Planner **Want** column.
+- [ ] Untick every checkbox in the Copy Planner **Want** column. **B1**, **B3**
+      (Gold) and **B5** (New wizard level) are empty; **B4** (Downtime) is
+      **10**.
 - [ ] Confirm the Wizards tab is empty again and shows no `#REF!`.
 
 ---
@@ -295,12 +347,15 @@ order:
    wrong tab.
 3. **Everything shifted one column** — a question was added or reordered in the
    form. Re-run `verify_form_script.js` and rebuild the form from the script.
-4. **Stray commas in Owners** — cosmetic; the `TEXTJOIN` question from step 3.
-5. **No dropdown, no checkboxes, no Status colours** — `PolishSpellExchangeSheet.gs`
+4. **`#NAME?` in a downloaded Excel copy** — a formula is using a function
+   that version of Excel lacks. `verify_workbook.py` is meant to catch this, so
+   tell me which cell.
+5. **No dropdown, no checkboxes, no Status or budget colours** — `PolishSpellExchangeSheet.gs`
    hasn't been run, or was run before the Wizards tab had data. Re-run it; it's
    safe to run repeatedly.
 6. **Want ticks do nothing to the totals** — the Want cells are plain text rather
    than checkboxes. The totals count `TRUE`, so the polish script must run before
    ticking anything.
-7. **Log entry full of stray commas** — the `TEXTJOIN` question from step 3,
-   showing up at its worst. Cosmetic, but tell me and I'll rewrite the formula.
+7. **Stray commas or semicolons** in *Owners* or the log entry — Sheets is
+   evaluating the joins differently from the offline suite. Cosmetic, but tell
+   me which cell.
