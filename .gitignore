@@ -38,3 +38,10 @@ venv/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Local scratch backlog — ideas not acted on yet. Personal, not a public
+# roadmap; anything worth doing becomes an issue or a commit.
+BACKLOG.md
+
+# Local scratch: production notes for the demo recording.
+RECORDING.md
