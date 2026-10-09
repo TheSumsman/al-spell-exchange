@@ -144,7 +144,8 @@ python scripts/verify_table_tent.py     # the sign prints on one A5 page
 | `verify_polish_script.js` | Dropdown, checkboxes or colours landing on the wrong cells after a layout change |
 | `verify_table_tent.py` | The sign spilling onto a second page. Needs Chrome, Chromium or Edge |
 
-**All five run on GitHub for every push** (`.github/workflows/checks.yml`).
+**All five run on GitHub for every pull request, and on `main` after a merge**
+(`.github/workflows/checks.yml`).
 
 **Turn on the pre-commit hook once per clone.** It runs `check_artifacts.py`
 and the two mocks before every commit, in a couple of seconds:
